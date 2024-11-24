@@ -1,10 +1,16 @@
 import os
+import sys
 import argparse
 from dataclasses import dataclass, field
-import dataclasses
 from typing import List
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+import torch
 import logging
 logging.basicConfig(level=logging.INFO)
+
+# The following imports are subject to change
+from evaluation.llama import enable_tuple_kv_cache_for_llama
+from evaluation.mistral import enable_tuple_kv_cache_for_mistral
 
 @dataclass
 class Configs:
@@ -64,7 +70,40 @@ class EvalEngine:
 
 
     def _run_inference(self):
-        pass
+        # Avoid tokenization warnings (deadlock)
+        os.environ["TOKENIZERS_PARALLELISM"] = "true"
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.configs.model,
+            model_max_length=sys.maxsize,
+            padding_side="right",
+            trust_remote_code=True,
+        )
+
+        torch.cuda.empty_cache()
+
+        if 'llama' in self.configs.model.lower() or 'longchat' in self.configs.model.lower():
+            enable_tuple_kv_cache_for_llama()
+        if 'mistral' in self.configs.model.lower():
+            enable_tuple_kv_cache_for_mistral()
+
+        self.model = AutoModelForCausalLM.from_pretrained(
+            self.configs.model,
+            device_map="auto",
+            torch_dtype=torch.float16,
+            trust_remote_code=True,
+            low_cpu_mem_usage=True,
+        )
+
+        if self.configs.approach == 'quest':
+            from evaluation.quest_attention import enable_quest_attention_eval
+            # enable_quest_attention_eval(self.model, args)
+        self.pipe = pipeline(
+            "text-generation",
+            model=self.model,
+            tokenizer=self.tokenizer,
+            pad_token_id=self.tokenizer.eos_token_id,
+        )
+            
 
     def _calc_metrics(self):
         pass
