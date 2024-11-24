@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class Needle(Data_set):
 
-    def load_data_from_hf(self) -> pd.DataFrame:
+    def load_raw_data(self) -> pd.DataFrame:
         """
         Construct the dataset from the haystack and needle.
 
@@ -35,7 +35,7 @@ class Needle(Data_set):
         :param kwargs: Additional arguments.
         """
         self.retrieval_question = 'What is the best thing to do in San Francisco?'
-        self.haystack_dir = "PaulGrahamEssays"
+        self.haystack_dir = "raw_data/PaulGrahamEssays"
         self.needle = 'The best thing to do in San Francisco is eat a sandwich and sit in Dolores Park on a sunny day.'
         self.final_context_length_buffer = 100
         self.context_lengths_min = 1000
@@ -60,7 +60,7 @@ class Needle(Data_set):
                 data.append(pd.DataFrame({
                     'context': [context], 
                     'input': [self.retrieval_question],
-                    'answers': [[self.needle]],
+                    'answer': [self.needle],
                     'context_length': [context_length],
                     'depth_percent': [depth_percent]
                 }))
@@ -157,15 +157,11 @@ class Needle(Data_set):
         
         return context
     
-    def _append_input(self, row: Dict) -> Dict:
-        row['input'] = '\n\nAnswer the question based on the given passages. Only give me the answer and do not output any other words.\n\nQuestion: ' + row['input'] + '\nAnswer within 20 words:'
+    def _create_answer_field(self, row: Dict) -> Dict:
         return row
-    
-    def _custom_process_data(self) -> None:
-        pass
-
-    def _append_system_prompt(self, row: Dict) -> Dict:
-        row['system_prompt'] = 'Answer the question based on the given passages. Only give me the answer and do not output any other words.\n\nThe following are given passages.\n'
+    def _create_prompt_field(self, row: Dict) -> Dict:
+        row['prompt'] = 'Answer the question based on the given passages. \n\nThe following are given passages.\n' \
+            + row['context'] + '\n' + row['input'] + '\nLet\'s think step by step:'
         return row
 
 

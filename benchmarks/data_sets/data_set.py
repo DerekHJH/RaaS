@@ -35,21 +35,23 @@ class Data_set(ABC):
         else:
             # Load raw data implemented by subclass
             self.data = self.load_raw_data()
-            logger.info('Loaded dataset raw data')
+            logger.info('Loaded dataset from raw data')
 
             # Common processing for all datasets
             self.data = self.data[:tot_num_data]
-            self.data = self.data.apply(lambda row: row, axis=1) # Dummy common processing
-            
-            # Custom processing for each dataset implemented by subclass
-            self._custom_process_data() 
+            self.data = self.data.apply(lambda row: self._create_answer_field(row), axis=1) \
+                .apply(lambda row: self._create_prompt_field(row), axis=1)
 
     @abstractmethod
     def load_raw_data(self) -> pd.DataFrame:
         raise NotImplementedError
+
+    @abstractmethod
+    def _create_answer_field(self, row: Dict) -> Dict:
+        raise NotImplementedError
     
     @abstractmethod
-    def _custom_process_data(self) -> None:
+    def _create_prompt_field(self, row: Dict) -> Dict:
         raise NotImplementedError
 
     def update(self, new_data: Dict[str, List]) -> None:
@@ -62,8 +64,11 @@ class Data_set(ABC):
         self.data.to_json(os.path.join(path, 'data.json'))
 
     def __iter__(self):
+        """
+        Iterate over the dataset, providing the prompt and answers for the test driver.
+        """
         for _, row in self.data.iterrows():
-            yield row['system_prompt'], row['context'], row['input']
+            yield row['prompt'], row['answer']
             
     def __len__(self):
         return len(self.data)
