@@ -1,6 +1,6 @@
 import os
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import dataclasses
 from typing import List
 import logging
@@ -12,9 +12,9 @@ class Configs:
     dataset: str
     model: str
     approach: str
-    all_datasets: List[str] = ['needle', 'math500'] # 'math', 
-    all_models: List[str] = ['peiyi9979/mistral-7b-sft']
-    all_approaches: List[str] = ['full', 'quest'] # 'RaaS'
+    all_datasets: List[str] = field(default_factory=lambda: ['needle', 'math500'])  # Fixed mutable default
+    all_models: List[str] = field(default_factory=lambda: ['peiyi9979/mistral-7b-sft'])  # Fixed mutable default
+    all_approaches: List[str] = field(default_factory=lambda: ['full', 'quest'])  # Fixed mutable default
     seed: int = 42
     result_path: str = 'results'
 
@@ -32,14 +32,14 @@ class Configs:
         
         # Parse the arguments.
         args = parser.parse_args()
-        attrs = [attr.name for attr in dataclasses.fields(cls)]
-        configs = cls(**{attr: getattr(args, attr) for attr in attrs})
+        configs = cls(**vars(args))
         return configs
         
 
     def __post_init__(self):
         self._verify_init_args()
         self.result_path = os.path.join(self.result_path, self.dataset, self.model.split('/')[-1])
+        os.makedirs(self.result_path, exist_ok=True)
 
     def _verify_init_args(self):
         assert self.model in self.all_models, f'{self.model} not in {self.all_models}'
@@ -53,8 +53,23 @@ class EvalEngine:
         self.configs = configs
 
     def run(self):
-        logging.info(f'Running {self.configs.approach} on {self.configs.dataset} using {self.configs.model}')
-        logging.info(f'Saving the results to {self.configs.result_path}')
-        
+        logging.info(f'Running \033[32m{self.configs.approach}\033[0m on \033[32m{self.configs.dataset}\033[0m using \033[32m{self.configs.model}\033[0m')
+        logging.info(f'Saving the results to \033[32m{self.configs.result_path}\033[0m')
+
+        self._run_inference()
+
+        self._calc_metrics()
+
+        self._plot_figures()
+
+
+    def _run_inference(self):
+        pass
+
+    def _calc_metrics(self):
+        pass
+
+    def _plot_figures(self):
+        pass
         
 
