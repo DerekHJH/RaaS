@@ -121,6 +121,8 @@ def main(args):
     # Avoid tokenization warnings (deadlock)
     os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
+    import pdb
+    pdb.set_trace()
     models = [x[0] for x in args.model]
     tokenizer = AutoTokenizer.from_pretrained(
         models[0],

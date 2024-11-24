@@ -1,0 +1,71 @@
+from abc import ABC, abstractmethod
+from typing import Any, Dict, Generic, List
+import os
+import pandas as pd
+import logging
+logger = logging.getLogger(__name__)
+from enum import Enum
+import random
+
+class Data_set(ABC):
+    """
+    Use the underline to differentiate from huggingface 
+    datasets (dataset) and Datasets (Dataset).
+    """
+    def __init__(
+            self, 
+            tokenizer,
+            tot_num_data=int(1e6), 
+            path: str=None,
+            **kwargs
+        ):
+        """
+        Load cached dataset. If failed, load raw data in the subclass.
+        """
+        self.tokenizer = tokenizer
+        self.tot_num_data = tot_num_data
+        self.path = path
+        self.kwargs = kwargs
+        self.data: pd.DataFrame = None
+
+        if path is not None and os.path.exists(os.path.join(path, 'data.json')):
+            # Load processed data including partial evaluation results
+            self.data = pd.read_json(os.path.join(path, 'data.json'))
+            logger.info(f'Loaded dataset from {path}')
+        else:
+            # Load raw data implemented by subclass
+            self.data = self.load_raw_data()
+            logger.info('Loaded dataset raw data')
+
+            # Common processing for all datasets
+            self.data = self.data[:tot_num_data]
+            self.data = self.data.apply(lambda row: row, axis=1) # Dummy common processing
+            
+            # Custom processing for each dataset implemented by subclass
+            self._custom_process_data() 
+
+    @abstractmethod
+    def load_raw_data(self) -> pd.DataFrame:
+        raise NotImplementedError
+    
+    @abstractmethod
+    def _custom_process_data(self) -> None:
+        raise NotImplementedError
+
+    def update(self, new_data: Dict[str, List]) -> None:
+        for key, value in new_data.items():
+            if len(value) < len(self.data):
+                logger.warning(f'Length of new data is less than the original data: {len(value)} < {len(self.data)}')
+            self.data[key] = value + (len(self.data) - len(value)) * [None]
+
+    def save_dataset(self, path: str) -> None:
+        self.data.to_json(os.path.join(path, 'data.json'))
+
+    def __iter__(self):
+        for _, row in self.data.iterrows():
+            yield row['system_prompt'], row['context'], row['input']
+            
+    def __len__(self):
+        return len(self.data)
+    def __getitem__(self, idx):
+        return self.data.iloc[idx]
