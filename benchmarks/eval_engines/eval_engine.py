@@ -1,23 +1,21 @@
+import argparse
+import logging
 import os
 import sys
-import argparse
 from collections import defaultdict
-from tqdm.contrib import tenumerate
 from dataclasses import dataclass, field
 from typing import List
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-import torch
 import numpy as np
-import logging
+import torch
+from tqdm.contrib import tenumerate
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from benchmarks.eval_engines.utils import str2class
+from evaluation.llama import enable_tuple_kv_cache_for_llama
+from evaluation.mistral import enable_tuple_kv_cache_for_mistral
+
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# The following are local imports
-from benchmarks.eval_engines.utils import str2class
-
-# The following imports are subject to change
-from evaluation.llama import enable_tuple_kv_cache_for_llama
-from evaluation.mistral import enable_tuple_kv_cache_for_mistral
 
 @dataclass
 class Configs:
@@ -25,59 +23,69 @@ class Configs:
     dataset: str
     model: str
     approach: str
-    all_datasets: List[str] = field(default_factory=lambda: ['needle', 'math500'])  # Fixed mutable default
-    all_models: List[str] = field(default_factory=lambda: ['peiyi9979/mistral-7b-sft'])  # Fixed mutable default
-    all_approaches: List[str] = field(default_factory=lambda: ['full', 'quest'])  # Fixed mutable default
+    all_datasets: List[str] = field(
+        default_factory=lambda: ["needle", "math500"]
+    )  # Fixed mutable default
+    all_models: List[str] = field(
+        default_factory=lambda: ["peiyi9979/mistral-7b-sft"]
+    )  # Fixed mutable default
+    all_approaches: List[str] = field(
+        default_factory=lambda: ["full", "quest"]
+    )  # Fixed mutable default
     seed: int = 42
-    result_path: str = 'results'
+    result_path: str = "results"
 
     # Quest configs
     chunk_size: int = 16
     token_budget: int = 1024
 
-
     @classmethod
-    def get_configs_from_cli_args(cls) -> 'Configs':
+    def get_configs_from_cli_args(cls) -> "Configs":
         """
         Parse the command line arguments and return the Configs object.
         """
         # Add the arguments to the parser.
         parser = argparse.ArgumentParser()
-        parser.add_argument('--dataset', type=str, required=True)
-        parser.add_argument('--model', type=str, required=True)
-        parser.add_argument('--approach', type=str, required=True)
-        parser.add_argument('--seed', type=int, default=42)
-        
+        parser.add_argument("--dataset", type=str, required=True)
+        parser.add_argument("--model", type=str, required=True)
+        parser.add_argument("--approach", type=str, required=True)
+        parser.add_argument("--seed", type=int, default=42)
+
         # Parse the arguments.
         args = parser.parse_args()
         configs = cls(**vars(args))
         return configs
-        
 
     def __post_init__(self):
         self._verify_init_args()
-        self.result_path = os.path.join(self.result_path, self.dataset, self.model.split('/')[-1])
+        self.result_path = os.path.join(self.result_path, self.dataset, self.model.split("/")[-1])
         os.makedirs(self.result_path, exist_ok=True)
 
     def _verify_init_args(self):
-        assert self.model in self.all_models, f'{self.model} not in {self.all_models}'
-        assert self.dataset in self.all_datasets, f'{self.dataset} not in {self.all_datasets}'
-        assert self.approach in self.all_approaches, f'{self.approach} not in {self.all_approaches}'
-    
+        assert self.model in self.all_models, f"{self.model} not in {self.all_models}"
+        assert self.dataset in self.all_datasets, f"{self.dataset} not in {self.all_datasets}"
+        assert self.approach in self.all_approaches, f"{self.approach} not in {self.all_approaches}"
+
 
 class EvalEngine:
     """
     Evaluate a specific approach on a specific model and a specific dataset.
     """
-    
+
     def __init__(self, configs: Configs) -> None:
         self.configs = configs
 
     def run(self):
-        logging.info(f'Evaluate \033[32m{self.configs.approach}\033[0m on \033[32m{self.configs.model}\033[0m and \033[32m{self.configs.dataset}\033[0m')
-        logging.info(f'Save the results to \033[32m{self.configs.result_path}\033[0m')
+        logging.info(
+            (
+                f"Evaluate \033[32m{self.configs.approach}\033[0m on"
+                f" \033[32m{self.configs.model}\033[0m and"
+                f" \033[32m{self.configs.dataset}\033[0m"
+            )
+        )
+        logging.info(f"Save the results to \033[32m{self.configs.result_path}\033[0m")
 
-        logger.debug(f"Step 1: Load the tokenizer")
+        logger.debug("Step 1: Load the tokenizer")
         # Avoid tokenization warnings (deadlock)
         os.environ["TOKENIZERS_PARALLELISM"] = "true"
         self.tokenizer = AutoTokenizer.from_pretrained(
@@ -87,20 +95,19 @@ class EvalEngine:
             trust_remote_code=True,
         )
 
-        logger.debug(f"Step 2: Load the dataset, preprocess the data and save the preprocced data")
+        logger.debug("Step 2: Load the dataset, preprocess the data and save the preprocced data")
         self.dataset = str2class[self.configs.dataset](
-            tokenizer=self.tokenizer, 
+            tokenizer=self.tokenizer,
             path=self.configs.result_path,
-            tot_num_data=3
+            tot_num_data=3,
         )
         # ckpt 1: dataset preprocessed
         self.dataset.save_dataset(self.configs.result_path)
-        
 
-        logger.debug(f"Step 3: Load the model")
-        if 'llama' in self.configs.model.lower() or 'longchat' in self.configs.model.lower():
+        logger.debug("Step 3: Load the model")
+        if "llama" in self.configs.model.lower() or "longchat" in self.configs.model.lower():
             enable_tuple_kv_cache_for_llama()
-        if 'mistral' in self.configs.model.lower():
+        if "mistral" in self.configs.model.lower():
             enable_tuple_kv_cache_for_mistral()
 
         self.model = AutoModelForCausalLM.from_pretrained(
@@ -111,16 +118,17 @@ class EvalEngine:
             low_cpu_mem_usage=True,
         )
 
-        logger.debug(f"Step 4: Reload the model according to the approach")
-        if self.configs.approach == 'quest':
+        logger.debug("Step 4: Reload the model according to the approach")
+        if self.configs.approach == "quest":
             from evaluation.quest_attention import enable_quest_attention_eval
+
             enable_quest_attention_eval(self.model, self.configs)
-        elif self.configs.approach == 'RaaS':
+        elif self.configs.approach == "RaaS":
             pass
-        else: # The "full" approach
+        else:  # The "full" approach
             pass
 
-        logger.debug(f"Step 5: Assemble the pipeline with the model and the tokenizer")
+        logger.debug("Step 5: Assemble the pipeline with the model and the tokenizer")
         self.pipe = pipeline(
             "text-generation",
             model=self.model,
@@ -128,31 +136,32 @@ class EvalEngine:
             pad_token_id=self.tokenizer.eos_token_id,
         )
 
-        logger.debug(f"Step 6: Run the inference and record results")
+        logger.debug("Step 6: Run the inference and record results")
         results = defaultdict(list)
         for i, (prompt, answer) in tenumerate(self.dataset, desc="dataset", leave=False):
             model_output = self._test_model(self.pipe, prompt, answer)
-            results[f'output_{self.configs.approach}'].append(model_output)
+            results[f"output_{self.configs.approach}"].append(model_output)
             # TODO: Also record the time-related metrics
-            results[f'time_{self.configs.approach}'].append(0.5)
-        
-        logger.debug(f"Step 7: Save the results")
+            results[f"time_{self.configs.approach}"].append(0.5)
+
+        logger.debug("Step 7: Save the results")
         self.dataset.update(results)
         # ckpt 2: dataset augmented with inference results
         self.dataset.save_dataset(self.configs.result_path)
-            
-        logger.debug(f"Step 8: Calculate the accuracy for the model outputs.")
+
+        logger.debug("Step 8: Calculate the accuracy for the model outputs.")
         self.dataset.calc_accuracy(self.configs.approach)
         # ckpt 3: dataset augmented with accuracy
         self.dataset.save_dataset(self.configs.result_path)
         # Print some aggregate information
-        score = np.mean(self.dataset.data[f'accuracy_{self.configs.approach}'])
-        time = np.mean(self.dataset.data[f'time_{self.configs.approach}'])
+        score = np.mean(self.dataset.data[f"accuracy_{self.configs.approach}"])
+        time = np.mean(self.dataset.data[f"time_{self.configs.approach}"])
         logger.info(f"Accuracy of {self.configs.approach}: {score:.3f}")
         logger.info(f"Time of {self.configs.approach}: {time:.2f} s")
 
     def _test_model(self, pipe, prompt, answer) -> str:
-        # model_output = pipe(prompt, num_return_sequences=1)[0]["generated_text"][len(prompt_text):]
+        # model_output = pipe(prompt,
+        # num_return_sequences=1)[0]["generated_text"][len(prompt_text):]
 
         q_length = 400
         que = prompt[-q_length:]
@@ -193,4 +202,3 @@ class EvalEngine:
 
         model_output = pipe.tokenizer.decode(generated_content, skip_special_tokens=True)
         return model_output
-
