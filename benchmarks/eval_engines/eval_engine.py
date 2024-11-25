@@ -83,7 +83,7 @@ class EvalEngine:
         )
 
         logger.debug(f"Step 2: Load the dataset")
-        self.dataset = str2class[self.configs.dataset](tokenizer=self.tokenizer, path=self.configs.result_path, tot_num_data=2)
+        self.dataset = str2class[self.configs.dataset](tokenizer=self.tokenizer, path=self.configs.result_path)
 
         logger.debug(f"Step 3: Load the model")
         if 'llama' in self.configs.model.lower() or 'longchat' in self.configs.model.lower():
