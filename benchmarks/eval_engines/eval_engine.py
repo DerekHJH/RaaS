@@ -82,8 +82,11 @@ class EvalEngine:
             trust_remote_code=True,
         )
 
-        logger.debug(f"Step 2: Load the dataset")
+        logger.debug(f"Step 2: Load the dataset, preprocess the data and save the preprocced data")
         self.dataset = str2class[self.configs.dataset](tokenizer=self.tokenizer, path=self.configs.result_path)
+        # ckpt 1: dataset preprocessed
+        self.dataset.save_dataset(self.configs.result_path)
+        
 
         logger.debug(f"Step 3: Load the model")
         if 'llama' in self.configs.model.lower() or 'longchat' in self.configs.model.lower():
@@ -126,11 +129,14 @@ class EvalEngine:
         
         logger.debug(f"Step 7: Save the results")
         self.dataset.update(results)
+        # ckpt 2: dataset augmented with inference results
         self.dataset.save_dataset(self.configs.result_path)
             
         logger.debug(f"Step 8: Calculate the accuracy for the model outputs.")
         self.dataset.calc_accuracy(self.configs.approach)
+        # ckpt 3: dataset augmented with accuracy
         self.dataset.save_dataset(self.configs.result_path)
+        # Print some aggregate information
         score = np.mean(self.dataset.data[f'accuracy_{self.configs.approach}'])
         time = np.mean(self.dataset.data[f'time_{self.configs.approach}'])
         logger.info(f"Accuracy of {self.configs.approach}: {score:.3f}")
