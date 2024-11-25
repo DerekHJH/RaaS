@@ -1,5 +1,4 @@
 import subprocess
-from benchmarks.eval_engines.e2e.main import Configs
 
 # Configure the following three variables as needed
 dataset = 'needle'

@@ -31,6 +31,11 @@ class Configs:
     seed: int = 42
     result_path: str = 'results'
 
+    # Quest configs
+    chunk_size: int = 16
+    token_budget: int = 1024
+
+
     @classmethod
     def get_configs_from_cli_args(cls) -> 'Configs':
         """
@@ -109,7 +114,7 @@ class EvalEngine:
         logger.debug(f"Step 4: Reload the model according to the approach")
         if self.configs.approach == 'quest':
             from evaluation.quest_attention import enable_quest_attention_eval
-            # enable_quest_attention_eval(self.model, args)
+            enable_quest_attention_eval(self.model, self.configs)
         elif self.configs.approach == 'RaaS':
             pass
         else: # The "full" approach

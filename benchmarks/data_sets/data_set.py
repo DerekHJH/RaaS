@@ -59,7 +59,11 @@ class Data_set(ABC):
             self.data[key] = value + (len(self.data) - len(value)) * [None]
 
     def save_dataset(self, path: str) -> None:
-        self.data.to_json(os.path.join(path, 'data.json'))
+        self.data.to_json(
+            os.path.join(path, 'data.json'),
+            orient="records", 
+            indent=4
+        )
 
     def calc_accuracy(self, approach: str) -> None:
         """

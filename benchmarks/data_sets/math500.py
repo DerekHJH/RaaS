@@ -16,8 +16,11 @@ class Math500(Data_set):
         """
         Construct the dataset from a jsonl file
         """
-        self.raw_data_file_path = 'raw_data/MATH500.jsonl'
-        data = pd.read_json(self.raw_data_file_path, lines=True)
+        raw_data_file_path = os.path.join(
+            os.path.abspath(os.path.dirname(__file__)), 
+            'raw_data/MATH500.jsonl'
+        )
+        data = pd.read_json(raw_data_file_path, lines=True)
         return data
 
     def _calc_accuracy(self, row: Dict, approach: str) -> Dict:

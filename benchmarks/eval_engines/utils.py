@@ -12,6 +12,6 @@ def set_seed(seed):
 
 from benchmarks.data_sets import *
 str2class = {
-    '2wikimqa': math500.Math500,
+    'math500': math500.Math500,
     'needle': needle.Needle,   
 }
