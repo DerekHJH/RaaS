@@ -9,3 +9,9 @@ def set_seed(seed):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
+from benchmarks.data_sets import *
+str2class = {
+    '2wikimqa': math500.Math500,
+    'needle': needle.Needle,   
+}

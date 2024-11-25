@@ -8,6 +8,7 @@ from transformers import AutoTokenizer
 from tqdm import tqdm
 from functools import lru_cache
 from benchmarks.data_sets.data_set import Data_set
+from benchmarks.data_sets.utils import qa_f1_score
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +157,10 @@ class Needle(Data_set):
             context = self.tokenizer.decode(tokens[:context_length])
         
         return context
+    
+    def _calc_accuracy(self, row: Dict, approach: str) -> Dict:
+        row[f'accuracy_{approach}'] = qa_f1_score(row[f'output_{approach}'], row['answer'])
+        return row
     
     def _create_answer_field(self, row: Dict) -> Dict:
         return row

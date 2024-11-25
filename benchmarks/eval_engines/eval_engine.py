@@ -7,11 +7,13 @@ from dataclasses import dataclass, field
 from typing import List
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 import torch
+import numpy as np
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 # The following are local imports
-from benchmarks.data_sets.utils import str2class
+from benchmarks.eval_engines.utils import str2class
 
 # The following imports are subject to change
 from evaluation.llama import enable_tuple_kv_cache_for_llama
@@ -59,24 +61,18 @@ class Configs:
     
 
 class EvalEngine:
+    """
+    Evaluate a specific approach on a specific model and a specific dataset.
+    """
     
     def __init__(self, configs: Configs) -> None:
         self.configs = configs
 
     def run(self):
-        logging.info(f'Running \033[32m{self.configs.approach}\033[0m on \033[32m{self.configs.dataset}\033[0m using \033[32m{self.configs.model}\033[0m')
-        logging.info(f'Saving the results to \033[32m{self.configs.result_path}\033[0m')
+        logging.info(f'Evaluate \033[32m{self.configs.approach}\033[0m on \033[32m{self.configs.model}\033[0m and \033[32m{self.configs.dataset}\033[0m')
+        logging.info(f'Save the results to \033[32m{self.configs.result_path}\033[0m')
 
-        self._run_inference()
-
-        self._calc_metrics()
-
-        self._plot_figures()
-
-
-    def _run_inference(self) -> None:
-
-        # Step 1: Load the tokenizer
+        logger.debug(f"Step 1: Load the tokenizer")
         # Avoid tokenization warnings (deadlock)
         os.environ["TOKENIZERS_PARALLELISM"] = "true"
         self.tokenizer = AutoTokenizer.from_pretrained(
@@ -86,10 +82,10 @@ class EvalEngine:
             trust_remote_code=True,
         )
 
-        # Step 2: Load the dataset
-        self.dataset = str2class[self.configs.dataset](tokenizer=self.tokenizer, path=self.configs.result_path)
+        logger.debug(f"Step 2: Load the dataset")
+        self.dataset = str2class[self.configs.dataset](tokenizer=self.tokenizer, path=self.configs.result_path, tot_num_data=2)
 
-        # Step 3: Load the model
+        logger.debug(f"Step 3: Load the model")
         if 'llama' in self.configs.model.lower() or 'longchat' in self.configs.model.lower():
             enable_tuple_kv_cache_for_llama()
         if 'mistral' in self.configs.model.lower():
@@ -103,7 +99,7 @@ class EvalEngine:
             low_cpu_mem_usage=True,
         )
 
-        # Step 4: Reload the model according to the approach
+        logger.debug(f"Step 4: Reload the model according to the approach")
         if self.configs.approach == 'quest':
             from evaluation.quest_attention import enable_quest_attention_eval
             # enable_quest_attention_eval(self.model, args)
@@ -112,7 +108,7 @@ class EvalEngine:
         else: # The "full" approach
             pass
 
-        # Step 5: Assemble the pipeline with the model and the tokenizer
+        logger.debug(f"Step 5: Assemble the pipeline with the model and the tokenizer")
         self.pipe = pipeline(
             "text-generation",
             model=self.model,
@@ -120,24 +116,26 @@ class EvalEngine:
             pad_token_id=self.tokenizer.eos_token_id,
         )
 
-        # Step 6: Run the inference and record results
+        logger.debug(f"Step 6: Run the inference and record results")
         results = defaultdict(list)
         for i, (prompt, answer) in tenumerate(self.dataset, desc="dataset", leave=False):
             model_output = self._test_model(self.pipe, prompt, answer)
             results[f'output_{self.configs.approach}'].append(model_output)
             # TODO: Also record the time-related metrics
-            # results['time'].append(time)
+            results[f'time_{self.configs.approach}'].append(0.5)
         
-        # Step 7: Save the results
+        logger.debug(f"Step 7: Save the results")
         self.dataset.update(results)
         self.dataset.save_dataset(self.configs.result_path)
             
+        logger.debug(f"Step 8: Calculate the accuracy for the model outputs.")
+        self.dataset.calc_accuracy(self.configs.approach)
+        self.dataset.save_dataset(self.configs.result_path)
+        score = np.mean(self.dataset.data[f'accuracy_{self.configs.approach}'])
+        time = np.mean(self.dataset.data[f'time_{self.configs.approach}'])
+        logger.info(f"Accuracy of {self.configs.approach}: {score:.3f}")
+        logger.info(f"Time of {self.configs.approach}: {time:.2f} s")
 
-    def _calc_metrics(self) -> None:
-        pass
-
-    def _plot_figures(self) -> None:
-        pass
 
     
     def _test_model(self, pipe, prompt, answer) -> str:

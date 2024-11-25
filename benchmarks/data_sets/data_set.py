@@ -4,8 +4,6 @@ import os
 import pandas as pd
 import logging
 logger = logging.getLogger(__name__)
-from enum import Enum
-import random
 
 class Data_set(ABC):
     """
@@ -62,6 +60,20 @@ class Data_set(ABC):
 
     def save_dataset(self, path: str) -> None:
         self.data.to_json(os.path.join(path, 'data.json'))
+
+    def calc_accuracy(self, approach: str) -> None:
+        """
+        Compare the model output with the answer and calculate the accuracy.
+        Store the accuracy in the f'accuracy_{approach}' column.
+        """
+        assert f'output_{approach}' in self.data.columns, f'output_{approach} not in the dataset'
+        assert 'answer' in self.data.columns, 'answer not in the dataset'
+
+        self.data = self.data.apply(lambda row: self._calc_accuracy(row, approach), axis=1)
+    
+    @abstractmethod
+    def _calc_accuracy(self, row: Dict, approach: str) -> Dict:
+        raise NotImplementedError
 
     def __iter__(self):
         """
