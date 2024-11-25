@@ -43,6 +43,16 @@ make -j
 cd quest/ops
 bash setup.sh
 ```
+
+## Development Guide (Optional)
+
+```bash
+# Install pre-commit hooks for style checking
+pip install pre-commit
+pre-commit install
+```
+
+
 ## Accuracy Evaluation
 Our evaluations are based on [LongChat-7B-v1.5-32K](https://huggingface.co/lmsys/longchat-7b-v1.5-32k?clone=true) and [Yarn-Llama2-7B-128K](https://huggingface.co/NousResearch/Yarn-Llama-2-7b-128k) models, which are capable of handling long-context text generations. We evaluate both passkey retrieval and LongBench benchmarks. We provide several scripts to reproduce our results in the paper:
 
@@ -113,4 +123,8 @@ With example output of long-context summarization under LongChat-7B-v1.5-32K mod
 ![](./assets/figures/fig-examples.png)
 
 You can also try `scripts/example_demo.py` to test the performance of Quest on your own text generation tasks. We provide a simple interface to load the model and generate text with Quest operators. The above demo is an example with 32K input on FP16 LongChat-7B-v1.5-32K. Quest with 2048 token budget achieves 1.7x speedup compared to full cache FlashInfer version.
+
+
+
+
 
