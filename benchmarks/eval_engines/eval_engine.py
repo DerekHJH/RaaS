@@ -83,7 +83,11 @@ class EvalEngine:
         )
 
         logger.debug(f"Step 2: Load the dataset, preprocess the data and save the preprocced data")
-        self.dataset = str2class[self.configs.dataset](tokenizer=self.tokenizer, path=self.configs.result_path)
+        self.dataset = str2class[self.configs.dataset](
+            tokenizer=self.tokenizer, 
+            path=self.configs.result_path,
+            tot_num_data=3
+        )
         # ckpt 1: dataset preprocessed
         self.dataset.save_dataset(self.configs.result_path)
         
@@ -145,8 +149,7 @@ class EvalEngine:
 
     
     def _test_model(self, pipe, prompt, answer) -> str:
-        # response = pipe(prompt_text, num_return_sequences=1, max_new_tokens=10)[
-        #     0]["generated_text"][len(prompt_text):]
+        # model_output = pipe(prompt, num_return_sequences=1)[0]["generated_text"][len(prompt_text):]
 
         q_length = 400
         que = prompt[-q_length:]
@@ -172,7 +175,7 @@ class EvalEngine:
 
             pred_token_idx = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
             generated_content = [pred_token_idx.item()]
-            for _ in range(10 - 1):
+            for _ in range(pipe.tokenizer.model_max_length - 1):
                 outputs = pipe.model(
                     input_ids=pred_token_idx,
                     past_key_values=past_key_values,
