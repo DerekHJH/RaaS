@@ -60,7 +60,7 @@ class Needle(Data_set):
         )
         self.final_context_length_buffer = 100
         self.context_lengths_min = 1000
-        self.context_lengths_max = 11000
+        self.context_lengths_max = 3000
         self.context_lengths_num_intervals = 20
         self.document_depth_percent_min = 0
         self.document_depth_percent_max = 100

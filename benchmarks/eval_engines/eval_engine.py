@@ -173,7 +173,9 @@ class EvalEngine:
             generated_content = [pred_token_idx.item()]
 
             # Decode stage
-            for _ in range(pipe.tokenizer.model_max_length - 1):
+            for i in range(pipe.model.config.max_position_embeddings - 1):
+                if i % 100 == 0:
+                    logger.debug(f"Decoded {i} tokens")
                 outputs = pipe.model(
                     input_ids=pred_token_idx,
                     past_key_values=past_key_values,
