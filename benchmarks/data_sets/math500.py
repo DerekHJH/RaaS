@@ -5,6 +5,7 @@ import numpy as np
 from typing import Dict, List
 from transformers import AutoTokenizer
 from benchmarks.data_sets.data_set import Data_set
+from benchmarks.data_sets.utils import qa_f1_score
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,11 @@ class Math500(Data_set):
         self.raw_data_file_path = 'raw_data/MATH500.jsonl'
         data = pd.read_json(self.raw_data_file_path, lines=True)
         return data
+
+    def _calc_accuracy(self, row: Dict, approach: str) -> Dict:
+        # TODO: Replace qa_f1_score with an appropriate metric
+        row[f'accuracy_{approach}'] = qa_f1_score(row[f'output_{approach}'], row['answer'])
+        return row
 
     def _create_answer_field(self, row: Dict) -> Dict:
         return row

@@ -146,8 +146,6 @@ class EvalEngine:
         logger.info(f"Accuracy of {self.configs.approach}: {score:.3f}")
         logger.info(f"Time of {self.configs.approach}: {time:.2f} s")
 
-
-    
     def _test_model(self, pipe, prompt, answer) -> str:
         # model_output = pipe(prompt, num_return_sequences=1)[0]["generated_text"][len(prompt_text):]
 
