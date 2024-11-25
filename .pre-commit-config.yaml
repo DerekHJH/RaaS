@@ -19,8 +19,8 @@ repos:
   #     - id: mypy
   #       args: ["--explicit-package-bases", "benchmarks/"]
 
-  # - repo: https://github.com/PyCQA/isort
-  #   rev: 5.13.2
-  #   hooks:
-  #     - id: isort
-  #       files: benchmarks/
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        files: benchmarks/
