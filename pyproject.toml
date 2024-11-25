@@ -25,7 +25,8 @@ dependencies = [
     "pandas==2.2.3",
     "fastchat==0.1.0",
     "numpy==2.1.2",
-    "rouge==1.0.1"
+    "rouge==1.0.1",
+    "pre-commit==4.0.1"
 ]
 
 [tool.setuptools.packages.find]
