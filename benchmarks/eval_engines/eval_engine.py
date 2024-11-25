@@ -95,7 +95,6 @@ class EvalEngine:
         self.dataset = str2class[self.configs.dataset](
             tokenizer=self.tokenizer,
             path=self.configs.result_path,
-            tot_num_data=3,
         )
         # ckpt 1: dataset preprocessed
         self.dataset.save_dataset(self.configs.result_path)
