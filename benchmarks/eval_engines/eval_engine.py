@@ -5,10 +5,12 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import List
+
 import numpy as np
 import torch
 from tqdm.contrib import tenumerate
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+
 from benchmarks.eval_engines.utils import str2class
 from evaluation.llama import enable_tuple_kv_cache_for_llama
 from evaluation.mistral import enable_tuple_kv_cache_for_mistral
@@ -23,15 +25,9 @@ class Configs:
     dataset: str
     model: str
     approach: str
-    all_datasets: List[str] = field(
-        default_factory=lambda: ["needle", "math500"]
-    )  # Fixed mutable default
-    all_models: List[str] = field(
-        default_factory=lambda: ["peiyi9979/mistral-7b-sft"]
-    )  # Fixed mutable default
-    all_approaches: List[str] = field(
-        default_factory=lambda: ["full", "quest"]
-    )  # Fixed mutable default
+    all_datasets: List[str] = field(default_factory=lambda: ["needle", "math500"])
+    all_models: List[str] = field(default_factory=lambda: ["peiyi9979/mistral-7b-sft"])
+    all_approaches: List[str] = field(default_factory=lambda: ["full", "quest"])
     seed: int = 42
     result_path: str = "results"
 
@@ -163,40 +159,33 @@ class EvalEngine:
         # model_output = pipe(prompt,
         # num_return_sequences=1)[0]["generated_text"][len(prompt_text):]
 
-        q_length = 400
-        que = prompt[-q_length:]
-        text = prompt[:-q_length]
-        input = pipe.tokenizer(text, return_tensors="pt").to("cuda")
-        q_input = pipe.tokenizer(que, return_tensors="pt").to("cuda")
-        q_input.input_ids = q_input.input_ids[:, 1:]
-
+        input = pipe.tokenizer(prompt, return_tensors="pt").to("cuda")
         with torch.no_grad():
+            # Prefill stage
             output = pipe.model(
                 input_ids=input.input_ids,
                 past_key_values=None,
                 use_cache=True,
             )
+            # Store KV cache
             past_key_values = output.past_key_values
-            for input_id in q_input.input_ids[0]:
-                output = pipe.model(
-                    input_ids=input_id.unsqueeze(0).unsqueeze(0),
-                    past_key_values=past_key_values,
-                    use_cache=True,
-                )
-                past_key_values = output.past_key_values
-
+            # Produce the first token
             pred_token_idx = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
             generated_content = [pred_token_idx.item()]
+
+            # Decode stage
             for _ in range(pipe.tokenizer.model_max_length - 1):
                 outputs = pipe.model(
                     input_ids=pred_token_idx,
                     past_key_values=past_key_values,
                     use_cache=True,
                 )
-
+                # Store KV cache
                 past_key_values = outputs.past_key_values
+                # Produece the next token
                 pred_token_idx = outputs.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
                 generated_content += [pred_token_idx.item()]
+
                 if pred_token_idx.item() == pipe.tokenizer.eos_token_id:
                     break
 
