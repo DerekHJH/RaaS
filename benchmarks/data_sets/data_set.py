@@ -92,3 +92,7 @@ class Data_set(ABC):
 
     def __getitem__(self, idx):
         return self.data.iloc[idx]
+
+    @abstractmethod
+    def extract_ans_from_model_output(self, model_output):
+        raise NotImplementedError
