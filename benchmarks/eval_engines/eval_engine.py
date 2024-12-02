@@ -90,7 +90,7 @@ class EvalEngine:
         # Step 1: Preprocessing, load and modify neccessary components such as
         # tokenizer, dataset, model and pipeline.
         self.tokenizer: AutoTokenizer = self.load_tokenizer(self.configs.model)
-        self.dataset: Data_set = self.load_dataset(self.tokenizer)
+        self.dataset: Data_set = self.load_dataset(self.configs.dataset, self.tokenizer)
         self.model: AutoModelForCausalLM = self.load_model(self.configs.model)
         self.model: AutoModelForCausalLM = self.modify_model_according_to_approach(
             self.model, self.configs.approach
