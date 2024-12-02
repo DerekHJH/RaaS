@@ -1,7 +1,9 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any, List, Tuple
+
+import torch
 
 # import torch
 from tqdm.contrib import tenumerate
@@ -22,6 +24,11 @@ class MarkovConfigs(Configs):
     all_models: List[str] = field(default_factory=lambda: ["peiyi9979/mistral-7b-sft"])
     all_approaches: List[str] = field(default_factory=lambda: ["full"])
 
+    # There are too many layers and heads, we construct the attention maps for
+    # a limited number of layers and heads as configured in the `configs`.
+    layer_ids = [0]
+    head_ids = [0]
+
 
 class MarkovEvalEngine(EvalEngine):
 
@@ -34,8 +41,11 @@ class MarkovEvalEngine(EvalEngine):
             model_output, attentions = self.test_model(pipe, prompt, answer)
             # results[f"output_{self.configs.approach}"].append(model_output)
             results[f"output_{self.configs.approach}"].append(model_output)
+
         dataset.update(results)
         dataset.save_dataset(self.configs.result_path)
+
+        self.construct_and_save_attention_maps(attentions)
 
         return dataset
 
@@ -53,6 +63,38 @@ class MarkovEvalEngine(EvalEngine):
         attentions = model_output.attentions
         model_output = pipe.tokenizer.decode(model_output.sequences[0])
         return model_output, attentions
+
+    def construct_and_save_attention_maps(self, attentions: Tuple[Tuple[torch.Tensor]]) -> None:
+        """
+        Params:
+            attentions: Tuple (of length `seq_len`) of Tuple (of length `num_layers`) of
+            torch.Tensor --- `seq_len` * `num_layers` torch.Tensor in total,
+            each of shape (`batch_size`, `num_heads`, `num_attend_tokens`, `num_attended_tokens`).
+
+            assert len(attentions) == seq_len
+            assert len(attentions[0]) == num_layers
+            assert attentions[0][0].shape == (batch_size, num_heads, num_prefill_tokens, num_prefill_tokens)
+            assert attentions[1][0].shape == (batch_size, num_heads, 1, num_prefill_tokens + 1)
+            assert attentions[2][0].shape == (batch_size, num_heads, 1, num_prefill_tokens + 2)
+            ...
+        """
+        import pdb
+
+        pdb.set_trace()
+        for layer_id in self.configs.layer_ids:
+            for head_id in self.configs.head_ids:
+                # A list (of length seq_len) torch.Tensor,
+                # each with shape (num_attend_tokens, num_attended_tokens)
+                attention = [
+                    attentions[i][layer_id][0, head_id, :, :] for i in range(len(attentions))
+                ]
+                print(attention)
+
+        attentions = []
+        # In out test, batch_size is always 1
+        attentions = attentions.squeeze(
+            0
+        )  # Shape (num_heads, num_attend_tokens, num_attended_tokens)
 
 
 if __name__ == "__main__":
