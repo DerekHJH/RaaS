@@ -3,6 +3,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, List, Tuple
 
+import matplotlib.pyplot as plt
+import seaborn as sns
 import torch
 
 # import torch
@@ -78,9 +80,7 @@ class MarkovEvalEngine(EvalEngine):
             assert attentions[2][0].shape == (batch_size, num_heads, 1, num_prefill_tokens + 2)
             ...
         """
-        import pdb
 
-        pdb.set_trace()
         for layer_id in self.configs.layer_ids:
             for head_id in self.configs.head_ids:
                 # A list (of length seq_len) torch.Tensor,
@@ -88,13 +88,26 @@ class MarkovEvalEngine(EvalEngine):
                 attention = [
                     attentions[i][layer_id][0, head_id, :, :] for i in range(len(attentions))
                 ]
-                print(attention)
+                """
+                assert attention[0].shape == (num_prefill_tokens, num_prefill_tokens)
+                assert attention[1].shape == (1, num_prefill_tokens + 1)
+                assert attention[2].shape == (1, num_prefill_tokens + 2)
+                """
+                assert attention[0].shape[0] == attention[0].shape[1]
+                assert attention[1].shape == (1, attention[0].shape[1] + 1)
+                assert attention[2].shape == (1, attention[0].shape[1] + 2)
 
-        attentions = []
-        # In out test, batch_size is always 1
-        attentions = attentions.squeeze(
-            0
-        )  # Shape (num_heads, num_attend_tokens, num_attended_tokens)
+                for i, tensor in enumerate(attention):
+                    padding = (0, attention[-1].shape[1] - tensor.shape[1])  # (left, right)
+                    attention[i] = torch.nn.functional.pad(
+                        tensor, padding, mode="constant", value=0
+                    )
+
+                attention = torch.cat(attention, dim=0).cpu().float()  # shape (seq_len, seq_len)
+
+                plt.figure(figsize=(12, 10))
+                sns.heatmap(attention, cmap="viridis")
+                plt.savefig(self.configs.result_path + f"layer_{layer_id}_head_{head_id}.png")
 
 
 if __name__ == "__main__":

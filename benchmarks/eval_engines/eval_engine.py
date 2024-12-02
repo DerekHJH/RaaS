@@ -14,8 +14,6 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, Pipeline, pipeline
 
 from benchmarks.data_sets.data_set import Data_set
 from benchmarks.eval_engines.utils import str2class
-from evaluation.llama import enable_tuple_kv_cache_for_llama
-from evaluation.mistral import enable_tuple_kv_cache_for_mistral
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -91,9 +89,8 @@ class EvalEngine:
         # tokenizer, dataset, model and pipeline.
         self.tokenizer: AutoTokenizer = self.load_tokenizer(self.configs.model)
         self.dataset: Data_set = self.load_dataset(self.configs.dataset, self.tokenizer)
-        self.model: AutoModelForCausalLM = self.load_model(self.configs.model)
-        self.model: AutoModelForCausalLM = self.modify_model_according_to_approach(
-            self.model, self.configs.approach
+        self.model: AutoModelForCausalLM = self.load_model_for_approach(
+            self.configs.model, self.configs.approach
         )
         self.pipe: Pipeline = self.load_pipeline(self.model, self.tokenizer)
 
@@ -132,7 +129,7 @@ class EvalEngine:
 
         return dataset
 
-    def load_model(self, model: str) -> AutoModelForCausalLM:
+    def load_model_for_approach(self, model: str, approach: str) -> AutoModelForCausalLM:
         """
         Load the model.
 
@@ -143,37 +140,21 @@ class EvalEngine:
 
         logger.info(f"Loading the model \033[32m{model}\033[0m")
 
-        if "llama" in model.lower() or "longchat" in model.lower():
-            enable_tuple_kv_cache_for_llama()
-        if "mistral" in model.lower():
-            enable_tuple_kv_cache_for_mistral()
+        # if "llama" in model.lower() or "longchat" in model.lower():
+        #     enable_tuple_kv_cache_for_llama()
+        # if "mistral" in model.lower():
+        #     enable_tuple_kv_cache_for_mistral()
+        if "llama" in model.lower():
+            if approach == "full":
+                from quest.models.full_llama import LlamaForCausalLM as ModelLoader
 
-        return AutoModelForCausalLM.from_pretrained(
+        return ModelLoader.from_pretrained(
             model,
             device_map="auto",
             torch_dtype=torch.float16,
             trust_remote_code=True,
             low_cpu_mem_usage=True,
         )
-
-    def modify_model_according_to_approach(
-        self, model: AutoModelForCausalLM, approach: str
-    ) -> AutoModelForCausalLM:
-        """
-        Reload the model according to the approach.
-        """
-        logger.info(f"Reload the model according to the approach \033[32m{approach}\033[0m")
-        if approach == "quest":
-            from evaluation.quest_attention import enable_quest_attention_eval
-
-            enable_quest_attention_eval(model, self.configs)
-        elif approach == "raas":
-            from evaluation.raas_attention import enable_raas_attention_eval
-
-            enable_raas_attention_eval(model, self.configs)
-        else:  # The "full" approach
-            pass
-        return model
 
     def load_pipeline(self, model: AutoModelForCausalLM, tokenizer: AutoTokenizer) -> Pipeline:
         """
