@@ -10,7 +10,13 @@ from typing import List, Tuple
 import numpy as np
 import torch
 from tqdm.contrib import tenumerate
-from transformers import AutoModelForCausalLM, AutoTokenizer, Pipeline, pipeline
+from transformers import (
+    AutoConfig,
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    Pipeline,
+    pipeline,
+)
 
 from benchmarks.data_sets.data_set import Data_set
 from benchmarks.eval_engines.utils import str2class
@@ -140,11 +146,8 @@ class EvalEngine:
 
         logger.info(f"Loading the model \033[32m{model}\033[0m")
 
-        # if "llama" in model.lower() or "longchat" in model.lower():
-        #     enable_tuple_kv_cache_for_llama()
-        # if "mistral" in model.lower():
-        #     enable_tuple_kv_cache_for_mistral()
-        if "llama" in model.lower():
+        model_config = AutoConfig.from_pretrained(model)
+        if model_config.model_type == "llama":
             if approach == "full":
                 from quest.models.full_llama import LlamaForCausalLM as ModelLoader
 
