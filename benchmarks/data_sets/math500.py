@@ -36,7 +36,8 @@ class Math500(Data_set):
         row["prompt"] = row["problem"] + "\nLet's think step by step:"
         return row
 
-    # def extract_ans_from_model_output(self, model_output):
+    def extract_ans_from_model_output(self, model_output):
+        pass
 
     #     # Remove 'kn' from the mistral 7b model
     #     pred_str = pred_str.replace("\u043a\u0438", "")
@@ -101,6 +102,7 @@ if __name__ == "__main__":
 
     tokenizer = AutoTokenizer.from_pretrained("peiyi9979/mistral-7b-sft")
     dataset = Math500(tokenizer=tokenizer)
+
     import pdb
 
     pdb.set_trace()
