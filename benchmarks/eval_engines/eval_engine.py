@@ -27,7 +27,7 @@ class Configs:
     dataset: str
     model: str
     approach: str
-    tot_num_data: int = int(1e6)
+    tot_num_data: int = 3
     all_datasets: List[str] = field(default_factory=lambda: ["needle", "math500"])
     all_models: List[str] = field(default_factory=lambda: ["peiyi9979/mistral-7b-sft"])
     all_approaches: List[str] = field(default_factory=lambda: ["full", "quest", "raas"])
@@ -101,8 +101,9 @@ class EvalEngine:
         self.dataset = self.run_inference(self.pipe, self.dataset)
 
         # Step 3: Postprocessing such as calculating the accuracy for the model outputs.
+        # Save the processing results into the dataset.
         # And print some aggregate information.
-        self.dataset = self.run_postprocessing()
+        self.dataset = self.run_postprocessing(self.dataset)
 
     def load_tokenizer(self, tokenizer: str) -> AutoTokenizer:
         """
@@ -269,6 +270,8 @@ class EvalEngine:
     def run_postprocessing(self, dataset: Data_set) -> Data_set:
         """
         Calculate metrics for the model outputs.
+        Save the processing results into the dataset.
+        Print some aggregate information.
         """
         dataset.calc_accuracy(self.configs.approach)
         dataset.save_dataset(self.configs.result_path)
