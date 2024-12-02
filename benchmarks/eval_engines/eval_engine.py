@@ -10,8 +10,9 @@ from typing import List, Tuple
 import numpy as np
 import torch
 from tqdm.contrib import tenumerate
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer, Pipeline, pipeline
 
+from benchmarks.data_sets.data_set import Data_set
 from benchmarks.eval_engines.utils import str2class
 from evaluation.llama import enable_tuple_kv_cache_for_llama
 from evaluation.mistral import enable_tuple_kv_cache_for_mistral
@@ -26,7 +27,7 @@ class Configs:
     dataset: str
     model: str
     approach: str
-    tot_num_data: int = 3
+    tot_num_data: int = int(1e6)
     all_datasets: List[str] = field(default_factory=lambda: ["needle", "math500"])
     all_models: List[str] = field(default_factory=lambda: ["peiyi9979/mistral-7b-sft"])
     all_approaches: List[str] = field(default_factory=lambda: ["full", "quest", "raas"])
@@ -86,95 +87,128 @@ class EvalEngine:
         )
         logging.info(f"Save the results to \033[32m{self.configs.result_path}\033[0m")
 
-        logger.debug("Step 1: Load the tokenizer")
+        # Step 1: Preprocessing, load and modify neccessary components such as
+        # tokenizer, dataset, model and pipeline.
+        self.tokenizer: AutoTokenizer = self.load_tokenizer(self.configs.model)
+        self.dataset: Data_set = self.load_dataset(self.tokenizer)
+        self.model: AutoModelForCausalLM = self.load_model(self.configs.model)
+        self.model: AutoModelForCausalLM = self.modify_model_according_to_approach(
+            self.model, self.configs.approach
+        )
+        self.pipe: Pipeline = self.load_pipeline(self.model, self.tokenizer)
+
+        # Step 2: Run the inference and record results into the dataset
+        self.dataset = self.run_inference(self.pipe, self.dataset)
+
+        # Step 3: Postprocessing such as calculating the accuracy for the model outputs.
+        # And print some aggregate information.
+        self.dataset = self.run_postprocessing()
+
+    def load_tokenizer(self, tokenizer: str) -> AutoTokenizer:
+        """
+        Load the tokenizer for the model.
+        """
+
+        logger.debug(f"Loading the tokenizer \033[32m{tokenizer}\033[0m")
+
         # Avoid tokenization warnings (deadlock)
         os.environ["TOKENIZERS_PARALLELISM"] = "true"
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.configs.model,
+
+        return AutoTokenizer.from_pretrained(
+            tokenizer,
             model_max_length=sys.maxsize,
             padding_side="right",
             trust_remote_code=True,
         )
 
-        logger.debug("Step 2: Load the dataset, preprocess the data and save the preprocced data")
-        self.dataset = str2class[self.configs.dataset](
-            tokenizer=self.tokenizer,
+    def load_dataset(self, dataset: str, tokenizer: AutoTokenizer) -> Data_set:
+        """
+        Load the dataset, finish preprocessing within the Data_set
+        class and save the dataset.
+        """
+        logger.info(f"Loading the dataset \033[32m{dataset}\033[0m")
+        dataset = str2class[dataset](
+            tokenizer=tokenizer,
             path=self.configs.result_path,
             tot_num_data=self.configs.tot_num_data,
         )
-        # ckpt 1: dataset preprocessed
-        self.dataset.save_dataset(self.configs.result_path)
+        dataset.save_dataset(self.configs.result_path)
 
-        logger.debug("Step 3: Load the model")
-        if "llama" in self.configs.model.lower() or "longchat" in self.configs.model.lower():
+        return dataset
+
+    def load_model(self, model: str) -> AutoModelForCausalLM:
+        """
+        Load the model.
+
+        Before loading the model, we need to enable the tuple_kv_cache
+        for quest BC. The current huggingface kv cache is implemented
+        as Cache class https://huggingface.co/docs/transformers/main/en/kv_cache
+        """
+
+        logger.debug(f"Loading the model \033[32m{model}\033[0m")
+
+        if "llama" in model.lower() or "longchat" in model.lower():
             enable_tuple_kv_cache_for_llama()
-        if "mistral" in self.configs.model.lower():
+        if "mistral" in model.lower():
             enable_tuple_kv_cache_for_mistral()
 
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.configs.model,
+        return AutoModelForCausalLM.from_pretrained(
+            model,
             device_map="auto",
             torch_dtype=torch.float16,
             trust_remote_code=True,
             low_cpu_mem_usage=True,
         )
 
-        logger.debug("Step 4: Reload the model according to the approach")
-        if self.configs.approach == "quest":
+    def modify_model_according_to_approach(
+        self, model: AutoModelForCausalLM, approach: str
+    ) -> AutoModelForCausalLM:
+        """
+        Reload the model according to the approach.
+        """
+        logger.debug(f"Reload the model according to the approach \033[32m{approach}\033[0m")
+        if approach == "quest":
             from evaluation.quest_attention import enable_quest_attention_eval
 
-            enable_quest_attention_eval(self.model, self.configs)
-        elif self.configs.approach == "raas":
+            enable_quest_attention_eval(model, self.configs)
+        elif approach == "raas":
             from evaluation.raas_attention import enable_raas_attention_eval
 
-            enable_raas_attention_eval(self.model, self.configs)
+            enable_raas_attention_eval(model, self.configs)
         else:  # The "full" approach
             pass
+        return model
 
-        logger.debug("Step 5: Assemble the pipeline with the model and the tokenizer")
-        self.pipe = pipeline(
+    def load_pipeline(self, model: AutoModelForCausalLM, tokenizer: AutoTokenizer) -> Pipeline:
+        """
+        Assemble the pipeline with the model and the tokenizer.
+        """
+        return pipeline(
             "text-generation",
-            model=self.model,
-            tokenizer=self.tokenizer,
-            pad_token_id=self.tokenizer.eos_token_id,
+            model=model,
+            tokenizer=tokenizer,
+            pad_token_id=tokenizer.eos_token_id,
         )
 
-        logger.debug("Step 6: Run the inference and record results")
+    def run_inference(self, pipe: Pipeline, dataset: Data_set) -> Data_set:
+        """
+        Run the inference and record the results into the dataset.
+        """
         results = defaultdict(list)
-        for i, (prompt, answer) in tenumerate(self.dataset, desc="dataset", leave=False):
-            model_output, TTFT, JCT, TPOT, num_decode = self._test_model(self.pipe, prompt, answer)
+        for i, (prompt, answer) in tenumerate(dataset, desc="dataset", leave=False):
+            model_output, TTFT, JCT, TPOT, num_decode = self.test_model(pipe, prompt, answer)
             results[f"output_{self.configs.approach}"].append(model_output)
             # TODO: Also record the time-related metrics
             results[f"TTFT_{self.configs.approach}"].append(TTFT)
             results[f"JCT_{self.configs.approach}"].append(JCT)
             results[f"TPOT_{self.configs.approach}"].append(TPOT)
             results[f"num_decode_{self.configs.approach}"].append(num_decode)
+        dataset.update(results)
+        dataset.save_dataset(self.configs.result_path)
 
-        logger.debug("Step 7: Save the results")
-        self.dataset.update(results)
+        return dataset
 
-        # ckpt 2: dataset augmented with inference results
-        self.dataset.save_dataset(self.configs.result_path)
-
-        logger.debug("Step 8: Calculate the accuracy for the model outputs.")
-        self.dataset.calc_accuracy(self.configs.approach)
-
-        # ckpt 3: dataset augmented with accuracy
-        self.dataset.save_dataset(self.configs.result_path)
-
-        # Print some aggregate information
-        accuracy_avg = np.mean(self.dataset.data[f"accuracy_{self.configs.approach}"])
-        TTFT_avg = np.mean(self.dataset.data[f"TTFT_{self.configs.approach}"])
-        JCT_avg = np.mean(self.dataset.data[f"JCT_{self.configs.approach}"])
-        TPOT_avg = np.mean(self.dataset.data[f"TPOT_{self.configs.approach}"])
-        num_decode_avg = np.mean(self.dataset.data[f"num_decode_{self.configs.approach}"])
-        logger.info(f"Average accuracy of {self.configs.approach}: {accuracy_avg:.3f}")
-        logger.info(f"Average TTFT of {self.configs.approach}: {TTFT_avg:.2f} s")
-        logger.info(f"Average JCT of {self.configs.approach}: {JCT_avg:.2f} s")
-        logger.info(f"Average TPOT of {self.configs.approach}: {TPOT_avg:.2f} s")
-        logger.info(f"Average num_decode of {self.configs.approach}: {num_decode_avg:.2f}")
-
-    def _test_model(self, pipe, prompt, answer) -> Tuple[str, float, float, float, int]:
+    def test_model(self, pipe, prompt, answer) -> Tuple[str, float, float, float, int]:
         # model_output = pipe(prompt,
         # num_return_sequences=1)[0]["generated_text"][len(prompt_text):]
 
@@ -231,3 +265,24 @@ class EvalEngine:
 
         model_output = pipe.tokenizer.decode(generated_content, skip_special_tokens=True)
         return model_output, TTFT, JCT, TPOT, num_decode
+
+    def run_postprocessing(self, dataset: Data_set) -> Data_set:
+        """
+        Calculate metrics for the model outputs.
+        """
+        dataset.calc_accuracy(self.configs.approach)
+        dataset.save_dataset(self.configs.result_path)
+
+        # Print some aggregate information
+        accuracy_avg = np.mean(self.dataset.data[f"accuracy_{self.configs.approach}"])
+        TTFT_avg = np.mean(self.dataset.data[f"TTFT_{self.configs.approach}"])
+        JCT_avg = np.mean(self.dataset.data[f"JCT_{self.configs.approach}"])
+        TPOT_avg = np.mean(self.dataset.data[f"TPOT_{self.configs.approach}"])
+        num_decode_avg = np.mean(self.dataset.data[f"num_decode_{self.configs.approach}"])
+        logger.info(f"Average accuracy of {self.configs.approach}: {accuracy_avg:.3f}")
+        logger.info(f"Average TTFT of {self.configs.approach}: {TTFT_avg:.2f} s")
+        logger.info(f"Average JCT of {self.configs.approach}: {JCT_avg:.2f} s")
+        logger.info(f"Average TPOT of {self.configs.approach}: {TPOT_avg:.2f} s")
+        logger.info(f"Average num_decode of {self.configs.approach}: {num_decode_avg:.2f}")
+
+        return dataset
