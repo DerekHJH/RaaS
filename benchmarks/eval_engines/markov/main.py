@@ -31,9 +31,9 @@ class MarkovEvalEngine(EvalEngine):
         """
         results = defaultdict(list)
         for i, (prompt, answer) in tenumerate(dataset, desc="dataset", leave=False):
-            attentions = self.test_model(pipe, prompt, answer)
+            model_output, attentions = self.test_model(pipe, prompt, answer)
             # results[f"output_{self.configs.approach}"].append(model_output)
-            results[f"attention_{self.configs.approach}"].append(attentions)
+            results[f"output_{self.configs.approach}"].append(model_output)
         dataset.update(results)
         dataset.save_dataset(self.configs.result_path)
 
@@ -44,12 +44,15 @@ class MarkovEvalEngine(EvalEngine):
         input_ids = pipe.tokenizer.encode(prompt, return_tensors="pt").to("cuda")
         model_output = pipe.model.generate(
             input_ids,
+            max_length=pipe.model.config.max_position_embeddings,
             num_return_sequences=1,
             output_attentions=True,
             return_dict_in_generate=True,
         )
+
         attentions = model_output.attentions
-        return attentions
+        model_output = pipe.tokenizer.decode(model_output.sequences[0])
+        return model_output, attentions
 
 
 if __name__ == "__main__":

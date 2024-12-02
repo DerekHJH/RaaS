@@ -17,7 +17,7 @@ from benchmarks.eval_engines.utils import str2class
 from evaluation.llama import enable_tuple_kv_cache_for_llama
 from evaluation.mistral import enable_tuple_kv_cache_for_mistral
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -48,7 +48,6 @@ class Configs:
         parser.add_argument("--dataset", type=str, required=True)
         parser.add_argument("--model", type=str, required=True)
         parser.add_argument("--approach", type=str, required=True)
-        parser.add_argument("--tot_num_data", type=int, default=int(1e6))
         parser.add_argument("--seed", type=int, default=42)
 
         # Parse the arguments.
@@ -101,17 +100,12 @@ class EvalEngine:
         # Step 2: Run the inference and record results into the dataset
         self.dataset = self.run_inference(self.pipe, self.dataset)
 
-        # Step 3: Postprocessing such as calculating the accuracy for the model outputs.
-        # Save the processing results into the dataset.
-        # And print some aggregate information.
-        self.dataset = self.run_postprocessing(self.dataset)
-
     def load_tokenizer(self, tokenizer: str) -> AutoTokenizer:
         """
         Load the tokenizer for the model.
         """
 
-        logger.debug(f"Loading the tokenizer \033[32m{tokenizer}\033[0m")
+        logger.info(f"Loading the tokenizer \033[32m{tokenizer}\033[0m")
 
         # Avoid tokenization warnings (deadlock)
         os.environ["TOKENIZERS_PARALLELISM"] = "true"
@@ -147,7 +141,7 @@ class EvalEngine:
         as Cache class https://huggingface.co/docs/transformers/main/en/kv_cache
         """
 
-        logger.debug(f"Loading the model \033[32m{model}\033[0m")
+        logger.info(f"Loading the model \033[32m{model}\033[0m")
 
         if "llama" in model.lower() or "longchat" in model.lower():
             enable_tuple_kv_cache_for_llama()
@@ -168,7 +162,7 @@ class EvalEngine:
         """
         Reload the model according to the approach.
         """
-        logger.debug(f"Reload the model according to the approach \033[32m{approach}\033[0m")
+        logger.info(f"Reload the model according to the approach \033[32m{approach}\033[0m")
         if approach == "quest":
             from evaluation.quest_attention import enable_quest_attention_eval
 
@@ -185,6 +179,7 @@ class EvalEngine:
         """
         Assemble the pipeline with the model and the tokenizer.
         """
+        logger.info("Use a pipeline to aggregate the model and the tokenizer")
         return pipeline(
             "text-generation",
             model=model,
@@ -196,6 +191,7 @@ class EvalEngine:
         """
         Run the inference and record the results into the dataset.
         """
+        logger.info("Run the inference. This might take a long time... Good luck")
         results = defaultdict(list)
         for i, (prompt, answer) in tenumerate(dataset, desc="dataset", leave=False):
             model_output, TTFT, JCT, TPOT, num_decode = self.test_model(pipe, prompt, answer)
@@ -206,7 +202,20 @@ class EvalEngine:
             results[f"TPOT_{self.configs.approach}"].append(TPOT)
             results[f"num_decode_{self.configs.approach}"].append(num_decode)
         dataset.update(results)
+        dataset.calc_accuracy(self.configs.approach)
         dataset.save_dataset(self.configs.result_path)
+
+        # Print some aggregate information
+        accuracy_avg = np.mean(self.dataset.data[f"accuracy_{self.configs.approach}"])
+        TTFT_avg = np.mean(self.dataset.data[f"TTFT_{self.configs.approach}"])
+        JCT_avg = np.mean(self.dataset.data[f"JCT_{self.configs.approach}"])
+        TPOT_avg = np.mean(self.dataset.data[f"TPOT_{self.configs.approach}"])
+        num_decode_avg = np.mean(self.dataset.data[f"num_decode_{self.configs.approach}"])
+        logger.info(f"Average accuracy of {self.configs.approach}: {accuracy_avg:.3f}")
+        logger.info(f"Average TTFT of {self.configs.approach}: {TTFT_avg:.2f} s")
+        logger.info(f"Average JCT of {self.configs.approach}: {JCT_avg:.2f} s")
+        logger.info(f"Average TPOT of {self.configs.approach}: {TPOT_avg:.2f} s")
+        logger.info(f"Average num_decode of {self.configs.approach}: {num_decode_avg:.2f}")
 
         return dataset
 
@@ -267,26 +276,3 @@ class EvalEngine:
 
         model_output = pipe.tokenizer.decode(generated_content, skip_special_tokens=True)
         return model_output, TTFT, JCT, TPOT, num_decode
-
-    def run_postprocessing(self, dataset: Data_set) -> Data_set:
-        """
-        Calculate metrics for the model outputs.
-        Save the processing results into the dataset.
-        Print some aggregate information.
-        """
-        dataset.calc_accuracy(self.configs.approach)
-        dataset.save_dataset(self.configs.result_path)
-
-        # Print some aggregate information
-        accuracy_avg = np.mean(self.dataset.data[f"accuracy_{self.configs.approach}"])
-        TTFT_avg = np.mean(self.dataset.data[f"TTFT_{self.configs.approach}"])
-        JCT_avg = np.mean(self.dataset.data[f"JCT_{self.configs.approach}"])
-        TPOT_avg = np.mean(self.dataset.data[f"TPOT_{self.configs.approach}"])
-        num_decode_avg = np.mean(self.dataset.data[f"num_decode_{self.configs.approach}"])
-        logger.info(f"Average accuracy of {self.configs.approach}: {accuracy_avg:.3f}")
-        logger.info(f"Average TTFT of {self.configs.approach}: {TTFT_avg:.2f} s")
-        logger.info(f"Average JCT of {self.configs.approach}: {JCT_avg:.2f} s")
-        logger.info(f"Average TPOT of {self.configs.approach}: {TPOT_avg:.2f} s")
-        logger.info(f"Average num_decode of {self.configs.approach}: {num_decode_avg:.2f}")
-
-        return dataset
