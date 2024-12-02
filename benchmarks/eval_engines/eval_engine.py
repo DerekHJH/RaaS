@@ -48,6 +48,7 @@ class Configs:
         parser.add_argument("--dataset", type=str, required=True)
         parser.add_argument("--model", type=str, required=True)
         parser.add_argument("--approach", type=str, required=True)
+        parser.add_argument("--tot_num_data", type=int, default=int(1e6))
         parser.add_argument("--seed", type=int, default=42)
 
         # Parse the arguments.
