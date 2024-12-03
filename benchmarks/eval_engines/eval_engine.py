@@ -2,15 +2,10 @@ import argparse
 import logging
 import os
 import sys
-import time
 from abc import abstractmethod
-from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import List
 
-import numpy as np
-import torch
-from tqdm.contrib import tenumerate
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
@@ -157,6 +152,24 @@ class EvalEngine:
                     device_map="auto",
                     trust_remote_code=True,
                 )
+            elif approach_name == "quest":
+                from quest.models.quest_llama import LlamaForCausalLM
+
+                model = LlamaForCausalLM.from_pretrained(
+                    model_name,
+                    device_map="auto",
+                    trust_remote_code=True,
+                )
+                # TODO: Finish initilization
+            elif approach_name == "raas":
+                from quest.models.raas_llama import LlamaForCausalLM
+
+                model = LlamaForCausalLM.from_pretrained(
+                    model_name,
+                    device_map="auto",
+                    trust_remote_code=True,
+                )
+                # TODO: Finish initialization
 
         return model
 
@@ -172,95 +185,12 @@ class EvalEngine:
             pad_token_id=tokenizer.eos_token_id,
         )
 
+    @abstractmethod
     def run_inference(self, pipe: Pipeline, dataset: Data_set) -> Data_set:
         """
         Run the inference and record the results into the dataset.
         """
-        logger.info("Run the inference. This might take a long time... Good luck")
-        results = defaultdict(list)
-        for i, (prompt, answer) in tenumerate(dataset, desc="dataset", leave=False):
-            model_output, TTFT, JCT, TPOT, num_decode = self.test_model(pipe, prompt, answer)
-            results[f"output_{self.configs.approach}"].append(model_output)
-            # TODO: Also record the time-related metrics
-            results[f"TTFT_{self.configs.approach}"].append(TTFT)
-            results[f"JCT_{self.configs.approach}"].append(JCT)
-            results[f"TPOT_{self.configs.approach}"].append(TPOT)
-            results[f"num_decode_{self.configs.approach}"].append(num_decode)
-        dataset.update(results)
-        dataset.calc_accuracy(self.configs.approach)
-        dataset.save_dataset(self.configs.result_path)
-
-        # Print some aggregate information
-        accuracy_avg = np.mean(self.dataset.data[f"accuracy_{self.configs.approach}"])
-        TTFT_avg = np.mean(self.dataset.data[f"TTFT_{self.configs.approach}"])
-        JCT_avg = np.mean(self.dataset.data[f"JCT_{self.configs.approach}"])
-        TPOT_avg = np.mean(self.dataset.data[f"TPOT_{self.configs.approach}"])
-        num_decode_avg = np.mean(self.dataset.data[f"num_decode_{self.configs.approach}"])
-        logger.info(f"Average accuracy of {self.configs.approach}: {accuracy_avg:.3f}")
-        logger.info(f"Average TTFT of {self.configs.approach}: {TTFT_avg:.2f} s")
-        logger.info(f"Average JCT of {self.configs.approach}: {JCT_avg:.2f} s")
-        logger.info(f"Average TPOT of {self.configs.approach}: {TPOT_avg:.2f} s")
-        logger.info(f"Average num_decode of {self.configs.approach}: {num_decode_avg:.2f}")
-
-        return dataset
-
-    def test_model(self, pipe, prompt, answer) -> Tuple[str, float, float, float, int]:
-        # model_output = pipe(prompt,
-        # num_return_sequences=1)[0]["generated_text"][len(prompt_text):]
-
-        input = pipe.tokenizer(prompt, return_tensors="pt").to("cuda")
-        with torch.no_grad():
-
-            start_time = time.perf_counter()
-
-            # Prefill
-            output = pipe.model(
-                input_ids=input.input_ids,
-                past_key_values=None,
-                use_cache=True,
-            )
-
-            torch.cuda.synchronize()
-            prefill_time = time.perf_counter() - start_time
-
-            # Store KV cache
-            past_key_values = output.past_key_values
-
-            # Produce the first token
-            pred_token_idx = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
-            generated_content = [pred_token_idx.item()]
-
-            decode_time = 0
-            # Decode autoregressively
-            for num_decode in range(pipe.model.config.max_position_embeddings - 1):
-
-                start_time = time.perf_counter()
-
-                outputs = pipe.model(
-                    input_ids=pred_token_idx,
-                    past_key_values=past_key_values,
-                    use_cache=True,
-                )
-
-                torch.cuda.synchronize()
-                decode_time += time.perf_counter() - start_time
-
-                # Store KV cache
-                past_key_values = outputs.past_key_values
-
-                # Produece the next token
-                pred_token_idx = outputs.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
-                generated_content += [pred_token_idx.item()]
-
-                if pred_token_idx.item() == pipe.tokenizer.eos_token_id:
-                    break
-
-            TTFT = prefill_time
-            JCT = prefill_time + decode_time
-            TPOT = decode_time / num_decode
-
-        model_output = pipe.tokenizer.decode(generated_content, skip_special_tokens=True)
-        return model_output, TTFT, JCT, TPOT, num_decode
+        raise NotImplementedError
 
     @abstractmethod
     def generate_presentation(self):
