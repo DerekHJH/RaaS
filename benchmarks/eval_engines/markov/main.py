@@ -2,7 +2,7 @@ import logging
 import os
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any, List, Tuple
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -80,7 +80,9 @@ class MarkovEvalEngine(EvalEngine):
         assert attentions[2][0].shape == (batch_size, num_heads, 1, num_prefill_tokens + 2)
         ...
         """
-        attentions = torch.load(self.configs.result_path + "attentions.pt")
+        attentions: Tuple[Tuple[torch.Tensor]] = torch.load(
+            self.configs.result_path + "attentions.pt"
+        )
 
         for layer_id in self.configs.layer_ids:
             for head_id in self.configs.head_ids:
