@@ -81,7 +81,7 @@ class MarkovEvalEngine(EvalEngine):
         ...
         """
         attentions: Tuple[Tuple[torch.Tensor]] = torch.load(
-            self.configs.result_path + "attentions.pt"
+            os.path.join(self.configs.result_path, "attentions.pt")
         )
 
         for layer_id in self.configs.layer_ids:
@@ -126,5 +126,5 @@ if __name__ == "__main__":
 
     configs = MarkovConfigs.get_configs_from_cli_args()
     eval_engine = MarkovEvalEngine(configs)
-    eval_engine.run()
-    # eval_engine.present_results()
+    # eval_engine.run()
+    eval_engine.present_results()
