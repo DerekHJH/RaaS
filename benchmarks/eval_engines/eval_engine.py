@@ -4,13 +4,16 @@ import os
 import sys
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Tuple
 
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
     AutoTokenizer,
+    Cache,
+    DynamicCache,
     Pipeline,
+    SinkCache,
     pipeline,
 )
 
@@ -131,9 +134,11 @@ class EvalEngine:
 
         return dataset
 
-    def load_model_for_approach(self, model_name: str, approach_name: str) -> AutoModelForCausalLM:
+    def load_model_for_approach(
+        self, model_name: str, approach_name: str
+    ) -> Tuple[AutoModelForCausalLM, Cache]:
         """
-        Load the model.
+        Load the model and decide on the type of KV cache.
 
         Before loading the model, we need to enable the tuple_kv_cache
         for quest BC. The current huggingface kv cache is implemented
@@ -149,15 +154,28 @@ class EvalEngine:
 
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
-                    device_map="auto",
+                    device_map="cuda:0",
                     trust_remote_code=True,
                 )
+                model.past_key_values = DynamicCache()
+            elif approach_name == "streamingllm":
+                # Use the same llama code as the full model
+                from quest.models.full_llama import LlamaForCausalLM
+
+                model = LlamaForCausalLM.from_pretrained(
+                    model_name,
+                    device_map="cuda:0",
+                    trust_remote_code=True,
+                )
+                model.past_key_values = SinkCache(
+                    window_length=256, num_sink_tokens=4
+                )  # Default settings
             elif approach_name == "quest":
                 from quest.models.quest_llama import LlamaForCausalLM
 
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
-                    device_map="auto",
+                    device_map="cuda:0",
                     trust_remote_code=True,
                 )
                 # TODO: Finish initilization
@@ -166,7 +184,7 @@ class EvalEngine:
 
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
-                    device_map="auto",
+                    device_map="cuda:0",
                     trust_remote_code=True,
                 )
                 # TODO: Finish initialization
@@ -186,7 +204,9 @@ class EvalEngine:
         )
 
     @abstractmethod
-    def run_inference(self, pipe: Pipeline, dataset: Data_set) -> Data_set:
+    def run_inference(
+        self, pipe: Pipeline, dataset: Data_set, past_key_values: Cache = None
+    ) -> Data_set:
         """
         Run the inference and record the results into the dataset.
         """

@@ -69,7 +69,7 @@ class E2EEvalEngine(EvalEngine):
             # Prefill
             output = pipe.model(
                 input_ids=input.input_ids,
-                past_key_values=None,
+                past_key_values=pipe.model.past_key_values,
                 use_cache=True,
             )
 
