@@ -391,6 +391,9 @@ class DynamicCache(Cache):
             self.key_cache[layer_idx] = self.key_cache[layer_idx][indices, ...]
             self.value_cache[layer_idx] = self.value_cache[layer_idx][indices, ...]
 
+    def reset_cache(self):
+        self.__init__()
+
 
 class SinkCache(Cache):
     """
@@ -575,3 +578,7 @@ class SinkCache(Cache):
             self.value_cache[layer_idx] = torch.cat([sink_values, values_to_keep, value_states], dim=-2)
 
         return self.key_cache[layer_idx], self.value_cache[layer_idx]
+
+    
+    def reset_cache(self):
+        self.__init__(self.window_length, self.num_sink_tokens)
