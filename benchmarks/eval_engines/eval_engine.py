@@ -4,7 +4,7 @@ import os
 import sys
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import List
 
 from transformers import (
     AutoConfig,
@@ -16,7 +16,8 @@ from transformers import (
 
 from benchmarks.data_sets.data_set import Data_set
 from benchmarks.eval_engines.utils import str2class
-from quest.utils.cache_utils import Cache, DynamicCache, SinkCache
+
+# from quest.utils.cache_utils import Cache, SinkCache
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ class Configs:
     model: str
     approach: str
     tot_num_data: int = int(1e6)
-    all_datasets: List[str] = field(default_factory=lambda: ["needle", "math500"])
+    all_datasets: List[str] = field(default_factory=lambda: ["math500"])
     all_models: List[str] = field(default_factory=lambda: ["peiyi9979/mistral-7b-sft"])
     all_approaches: List[str] = field(default_factory=lambda: ["full", "quest", "raas"])
     seed: int = 42
@@ -132,9 +133,7 @@ class EvalEngine:
 
         return dataset
 
-    def load_model_for_approach(
-        self, model_name: str, approach_name: str
-    ) -> Tuple[AutoModelForCausalLM, Cache]:
+    def load_model_for_approach(self, model_name: str, approach_name: str) -> AutoModelForCausalLM:
         """
         Load the model and decide on the type of KV cache.
 
@@ -155,7 +154,6 @@ class EvalEngine:
                     device_map="cuda:0",
                     trust_remote_code=True,
                 )
-                model.past_key_values = DynamicCache()
             elif approach_name == "streamingllm":
                 # Use the same llama code as the full model
                 from quest.models.full_llama import LlamaForCausalLM
@@ -165,9 +163,6 @@ class EvalEngine:
                     device_map="cuda:0",
                     trust_remote_code=True,
                 )
-                model.past_key_values = SinkCache(
-                    window_length=256, num_sink_tokens=4
-                )  # Default settings
             elif approach_name == "quest":
                 from quest.models.quest_llama import LlamaForCausalLM
 
@@ -202,9 +197,7 @@ class EvalEngine:
         )
 
     @abstractmethod
-    def run_inference(
-        self, pipe: Pipeline, dataset: Data_set, past_key_values: Cache = None
-    ) -> Data_set:
+    def run_inference(self, pipe: Pipeline, dataset: Data_set) -> Data_set:
         """
         Run the inference and record the results into the dataset.
         """

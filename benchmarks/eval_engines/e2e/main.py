@@ -56,7 +56,6 @@ class E2EEvalEngine(EvalEngine):
     def test_model(self, pipe, prompt, answer) -> Tuple[str, float, float, float, int]:
 
         torch.cuda.empty_cache()
-        pipe.model.past_key_values.reset_cache()
 
         input_ids = pipe.tokenizer.encode(prompt, return_tensors="pt").to("cuda")
 
@@ -66,7 +65,6 @@ class E2EEvalEngine(EvalEngine):
             max_length=pipe.model.config.max_position_embeddings,
             num_return_sequences=1,
             return_dict_in_generate=True,
-            past_key_values=pipe.model.past_key_values,
         )
 
         JCT = time.perf_counter() - start_time
