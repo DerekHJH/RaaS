@@ -116,7 +116,9 @@ class MarkovEvalEngine(EvalEngine):
                 plt.figure(figsize=(12, 10))
                 red_black_cmap = LinearSegmentedColormap.from_list("RedBlack", ["black", "red"])
                 sns.heatmap(attention, cmap=red_black_cmap)
-                plt.savefig(self.configs.result_path + f"layer_{layer_id}_head_{head_id}.png")
+                plt.savefig(
+                    os.path.join(self.configs.result_path, f"layer_{layer_id}_head_{head_id}.png")
+                )
                 plt.close()
 
 
@@ -124,5 +126,5 @@ if __name__ == "__main__":
 
     configs = MarkovConfigs.get_configs_from_cli_args()
     eval_engine = MarkovEvalEngine(configs)
-    # eval_engine.run()
-    eval_engine.present_results()
+    eval_engine.run()
+    # eval_engine.present_results()
