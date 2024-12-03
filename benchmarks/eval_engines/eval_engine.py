@@ -10,15 +10,13 @@ from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
     AutoTokenizer,
-    Cache,
-    DynamicCache,
     Pipeline,
-    SinkCache,
     pipeline,
 )
 
 from benchmarks.data_sets.data_set import Data_set
 from benchmarks.eval_engines.utils import str2class
+from quest.utils.cache_utils import Cache, DynamicCache, SinkCache
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
