@@ -67,7 +67,7 @@ class MarkovEvalEngine(EvalEngine):
         model_output = pipe.tokenizer.decode(model_output.sequences[0])
         return model_output, attentions
 
-    def present_results(self) -> None:
+    def generate_presentation(self) -> None:
         """
         attentions: Tuple (of length `seq_len`) of Tuple (of length `num_layers`) of
         torch.Tensor --- `seq_len` * `num_layers` torch.Tensor in total,
@@ -108,10 +108,11 @@ class MarkovEvalEngine(EvalEngine):
 
                 attention = torch.cat(attention, dim=0).cpu().float()  # shape (seq_len, seq_len)
 
-                # Min-max normalization for better visibility
-                attention = (attention - attention.min(dim=-1).values) / (
-                    attention.max(dim=-1).values - attention.min(dim=-1).values
-                )
+                # Scale the attention score For better visibility
+                attention = attention > 0.05
+                Sum = attention.sum(dim=0, keepdim=True)
+                Sum[0, 0:10] = 0  # Avoid sink tokens to dominate
+                attention = attention + Sum
 
                 plt.figure(figsize=(12, 10))
                 red_black_cmap = LinearSegmentedColormap.from_list("RedBlack", ["black", "red"])
@@ -126,5 +127,5 @@ if __name__ == "__main__":
 
     configs = MarkovConfigs.get_configs_from_cli_args()
     eval_engine = MarkovEvalEngine(configs)
-    # eval_engine.run()
-    eval_engine.present_results()
+    eval_engine.run()
+    eval_engine.generate_presentation()

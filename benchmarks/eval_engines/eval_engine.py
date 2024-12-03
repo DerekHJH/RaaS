@@ -263,5 +263,9 @@ class EvalEngine:
         return model_output, TTFT, JCT, TPOT, num_decode
 
     @abstractmethod
-    def present_results(self):
+    def generate_presentation(self):
+        """
+        Present the results by invoking this function after executing run().
+        Separating this function from run() improves efficiency by saving execution time.
+        """
         raise NotImplementedError
