@@ -103,30 +103,30 @@ class EvalEngine:
         # Step 2: Run the inference and record results into the dataset
         self.dataset = self.run_inference(self.pipe, self.dataset)
 
-    def load_tokenizer(self, tokenizer: str) -> AutoTokenizer:
+    def load_tokenizer(self, model_name: str) -> AutoTokenizer:
         """
         Load the tokenizer for the model.
         """
 
-        logger.info(f"Loading the tokenizer \033[32m{tokenizer}\033[0m")
+        logger.info(f"Loading the tokenizer \033[32m{model_name}\033[0m")
 
         # Avoid tokenization warnings (deadlock)
         os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
         return AutoTokenizer.from_pretrained(
-            tokenizer,
+            model_name,
             model_max_length=sys.maxsize,
             padding_side="right",
             trust_remote_code=True,
         )
 
-    def load_dataset(self, dataset: str, tokenizer: AutoTokenizer) -> Data_set:
+    def load_dataset(self, dataset_name: str, tokenizer: AutoTokenizer) -> Data_set:
         """
         Load the dataset, finish preprocessing within the Data_set
         class and save the dataset.
         """
-        logger.info(f"Loading the dataset \033[32m{dataset}\033[0m")
-        dataset = str2class[dataset](
+        logger.info(f"Loading the dataset \033[32m{dataset_name}\033[0m")
+        dataset: Data_set = str2class[dataset_name](
             tokenizer=tokenizer,
             path=self.configs.result_path,
             tot_num_data=self.configs.tot_num_data,
@@ -135,7 +135,7 @@ class EvalEngine:
 
         return dataset
 
-    def load_model_for_approach(self, model: str, approach: str) -> AutoModelForCausalLM:
+    def load_model_for_approach(self, model_name: str, approach_name: str) -> AutoModelForCausalLM:
         """
         Load the model.
 
@@ -144,20 +144,20 @@ class EvalEngine:
         as Cache class https://huggingface.co/docs/transformers/main/en/kv_cache
         """
 
-        logger.info(f"Loading the model \033[32m{model}\033[0m")
+        logger.info(f"Loading the model \033[32m{model_name}\033[0m")
 
-        model_config = AutoConfig.from_pretrained(model)
+        model_config = AutoConfig.from_pretrained(model_name)
         if model_config.model_type == "llama":
-            if approach == "full":
-                from quest.models.full_llama import LlamaForCausalLM as ModelLoader
+            if approach_name == "full":
+                from quest.models.full_llama import LlamaForCausalLM
 
-        return ModelLoader.from_pretrained(
-            model,
-            device_map="auto",
-            torch_dtype=torch.float16,
-            trust_remote_code=True,
-            low_cpu_mem_usage=True,
-        )
+                model = LlamaForCausalLM.from_pretrained(
+                    model_name,
+                    device_map="auto",
+                    trust_remote_code=True,
+                )
+
+        return model
 
     def load_pipeline(self, model: AutoModelForCausalLM, tokenizer: AutoTokenizer) -> Pipeline:
         """
