@@ -1,11 +1,13 @@
 import logging
+import os
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, List, Tuple
+from typing import Any, List
 
 import matplotlib.pyplot as plt
 import seaborn as sns
 import torch
+from matplotlib.colors import LinearSegmentedColormap
 
 # import torch
 from tqdm.contrib import tenumerate
@@ -28,8 +30,8 @@ class MarkovConfigs(Configs):
 
     # There are too many layers and heads, we construct the attention maps for
     # a limited number of layers and heads as configured in the `configs`.
-    layer_ids = [0]
-    head_ids = [0]
+    layer_ids = list(range(32))
+    head_ids = list(range(32))
 
 
 class MarkovEvalEngine(EvalEngine):
@@ -41,19 +43,18 @@ class MarkovEvalEngine(EvalEngine):
         results = defaultdict(list)
         for i, (prompt, answer) in tenumerate(dataset, desc="dataset", leave=False):
             model_output, attentions = self.test_model(pipe, prompt, answer)
-            # results[f"output_{self.configs.approach}"].append(model_output)
             results[f"output_{self.configs.approach}"].append(model_output)
 
         dataset.update(results)
         dataset.save_dataset(self.configs.result_path)
-
-        self.construct_and_save_attention_maps(attentions)
+        torch.save(attentions, os.path.join(self.configs.result_path, "attentions.pt"))
 
         return dataset
 
     def test_model(self, pipe, prompt, answer) -> Any:
 
         input_ids = pipe.tokenizer.encode(prompt, return_tensors="pt").to("cuda")
+
         model_output = pipe.model.generate(
             input_ids,
             max_length=pipe.model.config.max_position_embeddings,
@@ -66,20 +67,20 @@ class MarkovEvalEngine(EvalEngine):
         model_output = pipe.tokenizer.decode(model_output.sequences[0])
         return model_output, attentions
 
-    def construct_and_save_attention_maps(self, attentions: Tuple[Tuple[torch.Tensor]]) -> None:
+    def present_results(self) -> None:
         """
-        Params:
-            attentions: Tuple (of length `seq_len`) of Tuple (of length `num_layers`) of
-            torch.Tensor --- `seq_len` * `num_layers` torch.Tensor in total,
-            each of shape (`batch_size`, `num_heads`, `num_attend_tokens`, `num_attended_tokens`).
+        attentions: Tuple (of length `seq_len`) of Tuple (of length `num_layers`) of
+        torch.Tensor --- `seq_len` * `num_layers` torch.Tensor in total,
+        each of shape (`batch_size`, `num_heads`, `num_attend_tokens`, `num_attended_tokens`).
 
-            assert len(attentions) == seq_len
-            assert len(attentions[0]) == num_layers
-            assert attentions[0][0].shape == (batch_size, num_heads, num_prefill_tokens, num_prefill_tokens)
-            assert attentions[1][0].shape == (batch_size, num_heads, 1, num_prefill_tokens + 1)
-            assert attentions[2][0].shape == (batch_size, num_heads, 1, num_prefill_tokens + 2)
-            ...
+        assert len(attentions) == seq_len
+        assert len(attentions[0]) == num_layers
+        assert attentions[0][0].shape == (batch_size, num_heads, num_prefill_tokens, num_prefill_tokens)
+        assert attentions[1][0].shape == (batch_size, num_heads, 1, num_prefill_tokens + 1)
+        assert attentions[2][0].shape == (batch_size, num_heads, 1, num_prefill_tokens + 2)
+        ...
         """
+        attentions = torch.load(self.configs.result_path + "attentions.pt")
 
         for layer_id in self.configs.layer_ids:
             for head_id in self.configs.head_ids:
@@ -105,13 +106,21 @@ class MarkovEvalEngine(EvalEngine):
 
                 attention = torch.cat(attention, dim=0).cpu().float()  # shape (seq_len, seq_len)
 
+                # Min-max normalization for better visibility
+                attention = (attention - attention.min(dim=-1).values) / (
+                    attention.max(dim=-1).values - attention.min(dim=-1).values
+                )
+
                 plt.figure(figsize=(12, 10))
-                sns.heatmap(attention, cmap="viridis")
+                red_black_cmap = LinearSegmentedColormap.from_list("RedBlack", ["black", "red"])
+                sns.heatmap(attention, cmap=red_black_cmap)
                 plt.savefig(self.configs.result_path + f"layer_{layer_id}_head_{head_id}.png")
+                plt.close()
 
 
 if __name__ == "__main__":
 
     configs = MarkovConfigs.get_configs_from_cli_args()
     eval_engine = MarkovEvalEngine(configs)
-    eval_engine.run()
+    # eval_engine.run()
+    eval_engine.present_results()

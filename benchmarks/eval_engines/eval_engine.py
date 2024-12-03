@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import time
+from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import List, Tuple
@@ -260,3 +261,7 @@ class EvalEngine:
 
         model_output = pipe.tokenizer.decode(generated_content, skip_special_tokens=True)
         return model_output, TTFT, JCT, TPOT, num_decode
+
+    @abstractmethod
+    def present_results(self):
+        raise NotImplementedError
