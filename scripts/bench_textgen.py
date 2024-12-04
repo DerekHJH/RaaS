@@ -94,7 +94,7 @@ def benchmark_quest():
             te = time.perf_counter()
             decode_latency.append(te - ts)
         
-        model.quest_clear()
+        model.reset_model()
     
     avg_prefill_latency = np.mean(prefill_latency)
     avg_decode_latency = np.mean(decode_latency)

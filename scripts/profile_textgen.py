@@ -106,7 +106,7 @@ def benchmark_quest():
                     decode_latency.append(te - ts)
                     prof.step()
         prof.export_chrome_trace(f"./result/{token_budget}-{page_size}-{context_len}-{decode_len}.json")
-        model.quest_clear()
+        model.reset_model()
     
     avg_prefill_latency = np.mean(prefill_latency)
     avg_decode_latency = np.mean(decode_latency)

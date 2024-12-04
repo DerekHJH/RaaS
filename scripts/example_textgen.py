@@ -2,7 +2,7 @@ from transformers import AutoTokenizer
 import torch
 import argparse
 
-MODEL_PATH = "/mnt/storage/models/Llama-2-7b-chat-hf"
+MODEL_PATH = "peiyi9979/mistral-7b-sft"
 DEVICE = torch.device("cuda:0")
 DTYPE = torch.float16
 torch.set_default_dtype(DTYPE)

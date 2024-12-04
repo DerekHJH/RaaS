@@ -6,6 +6,7 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import List
 
+import torch
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
@@ -169,15 +170,15 @@ class EvalEngine:
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
                     device_map="cuda:0",
-                    dtype="float16",
+                    torch_dtype="float16",
                     trust_remote_code=True,
                 )
                 model.quest_init(
                     page_size=self.configs.page_size,
                     max_seq_len=model.config.max_position_embeddings,
                     token_budget=self.configs.token_budget,
-                    dtype="float16",
-                    device="cuda:0",
+                    dtype=torch.float16,
+                    device=torch.device("cuda:0"),
                 )
             elif approach_name == "raas":
                 from quest.models.raas_llama import LlamaForCausalLM
