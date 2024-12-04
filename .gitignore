@@ -1,7 +1,7 @@
 .DS_Store
 .vscode/
 plot/
-llama_original.py
+full_llama_4.31.0.py
 
 data/
 # Byte-compiled / optimized / DLL files
