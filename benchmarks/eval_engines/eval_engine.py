@@ -37,7 +37,7 @@ class Configs:
     result_path: str = "results"
 
     # Quest configs
-    chunk_size: int = 16  # Also RaaS config
+    page_size: int = 16  # Also RaaS config
     token_budget: int = 1024
 
     @classmethod
@@ -169,9 +169,16 @@ class EvalEngine:
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
                     device_map="cuda:0",
+                    dtype="float16",
                     trust_remote_code=True,
                 )
-                # TODO: Finish initilization
+                model.quest_init(
+                    page_size=self.configs.page_size,
+                    max_seq_len=model.config.max_position_embeddings,
+                    token_budget=self.configs.token_budget,
+                    dtype="float16",
+                    device="cuda:0",
+                )
             elif approach_name == "raas":
                 from quest.models.raas_llama import LlamaForCausalLM
 
@@ -208,5 +215,6 @@ class EvalEngine:
         """
         Present the results by invoking this function after executing run().
         Separating this function from run() improves efficiency by saving execution time.
+        The results are saved in self.configs.result_path.
         """
         raise NotImplementedError

@@ -551,7 +551,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         print(f"Quest allocates KV-Cache of {max_seq_len} tokens")
         print(f"Token budget is set to {token_budget}")
     
-    def quest_clear(self):
+    def reset_model(self):
         """
         Assistant function for cleaning states of KV-Cache,
         which prepares for a new conversation.

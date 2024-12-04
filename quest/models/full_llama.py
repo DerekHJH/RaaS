@@ -1312,3 +1312,9 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
             }
         )
         return model_inputs
+
+    def reset_model(self):
+        """
+        Exists only for compatibility with quest llama model and raas llama model.
+        """
+        pass
