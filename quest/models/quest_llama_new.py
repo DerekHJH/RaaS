@@ -865,8 +865,10 @@ class LlamaModel(LlamaPreTrainedModel):
             )
             use_cache = False
 
+        torch.cuda.nvtx.range_push(f"embed")
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids)
+        torch.cuda.nvtx.range_pop() # embed
 
         # kept for BC (non `Cache` `past_key_values` inputs)
         return_legacy_cache = False
@@ -903,9 +905,31 @@ class LlamaModel(LlamaPreTrainedModel):
         all_self_attns = () if output_attentions else None
         next_decoder_cache = None
 
-        for decoder_layer in self.layers:
+        # Configure Quest Controller
+        # Prepare indices/indptr for newly appended tokens
+        assert self.iController is not None, "Please init Quest Controller first."
+        self.iController.prepare_metadata(inputs_embeds.shape[1])
+
+        # Skip layers by setting infinite budgets
+        if self._quest_skip_layer > 0:
+            self.iController.set_page_budget(self._quest_max_page_limit)
+            self.iController.begin_forward(inputs_embeds.shape[1])
+
+        for idx, decoder_layer in enumerate(self.layers):
+
+            # Configure regular skipping layers
+            if idx == self._quest_skip_layer:
+                self.iController.end_forward()
+                self.iController.set_page_budget(self._quest_page_budget)
+                # Avoid the redundant init/copy of metadata
+                # if previous skip layer does, then skip it again
+                self.iController.begin_forward(inputs_embeds.shape[1], updateTensor=(idx==0))
+
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)
+
+            # KV-Cache Managed by ourselves
+            past_key_values = None
 
             if self.gradient_checkpointing and self.training:
                 layer_outputs = self._gradient_checkpointing_func(
@@ -920,6 +944,7 @@ class LlamaModel(LlamaPreTrainedModel):
                     position_embeddings,
                 )
             else:
+                torch.cuda.nvtx.range_push(f"layer_{idx}")
                 layer_outputs = decoder_layer(
                     hidden_states,
                     attention_mask=causal_mask,
@@ -929,7 +954,9 @@ class LlamaModel(LlamaPreTrainedModel):
                     use_cache=use_cache,
                     cache_position=cache_position,
                     position_embeddings=position_embeddings,
+                    iController=self.iController,
                 )
+                torch.cuda.nvtx.range_pop() # layer_{idx}
 
             hidden_states = layer_outputs[0]
 
@@ -939,7 +966,11 @@ class LlamaModel(LlamaPreTrainedModel):
             if output_attentions:
                 all_self_attns += (layer_outputs[1],)
 
+        self.iController.end_forward()
+
+        torch.cuda.nvtx.range_push("lastnorm_LlamaModel")
         hidden_states = self.norm(hidden_states)
+        torch.cuda.nvtx.range_pop() # lastnorm_LlamaModel
 
         # add hidden states from the last decoder layer
         if output_hidden_states:
