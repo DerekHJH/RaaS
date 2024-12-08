@@ -17,7 +17,6 @@ from transformers.modeling_utils import PreTrainedModel
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward, logging, replace_return_docstrings
 from transformers.models.llama.configuration_llama import LlamaConfig
 
-from quest.models.QuestAttention import QuestAttention
 from quest.utils.controller import InferenceController
 from quest.utils import rms_norm_forward
 import quest.utils

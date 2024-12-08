@@ -157,20 +157,21 @@ class EvalEngine:
                 )
             elif approach_name == "streamingllm":
                 # Use the same llama code as the full model
-                from quest.models.full_llama import LlamaForCausalLM
+                # TODO:
+                pass
+                # from quest.models.full_llama import LlamaForCausalLM
 
-                model = LlamaForCausalLM.from_pretrained(
-                    model_name,
-                    device_map="cuda:0",
-                    trust_remote_code=True,
-                )
+                # model = LlamaForCausalLM.from_pretrained(
+                #     model_name,
+                #     device_map="cuda:0",
+                #     trust_remote_code=True,
+                # )
             elif approach_name == "quest":
-                from quest.models.quest_llama import LlamaForCausalLM
+                from quest.models.quest_llama_new import LlamaForCausalLM
 
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
                     device_map="cuda:0",
-                    torch_dtype="float16",
                     trust_remote_code=True,
                 )
                 model.quest_init(

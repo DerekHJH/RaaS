@@ -1010,6 +1010,9 @@ class LlamaModel(LlamaPreTrainedModel):
         self.rotary_emb = LlamaRotaryEmbedding(config=config)
         self.gradient_checkpointing = False
 
+        # Leave Quest controller as uninitialized
+        self.iController = None
+
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -1320,6 +1323,9 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
         This function allocates all GPU memory for max_seq_len KV-Cache.
         """
         assert self.model.iController is None, "Can't init Quest Controller twice."
+
+        import pdb
+        pdb.set_trace()
         
         config = self.config
         self.model._quest_page_size = page_size
