@@ -24,6 +24,10 @@ from sympy import N, simplify
 from sympy.parsing.latex import parse_latex
 from sympy.parsing.sympy_parser import parse_expr
 
+#####################################################
+# Start of helper functions for _calculate_accuracy #
+#####################################################
+
 
 def choice_answer_clean(pred: str):
     pred = pred.strip("\n").rstrip(".").rstrip("/").strip(" ").lstrip(":")
@@ -324,9 +328,9 @@ def call_with_timeout(func, *args, timeout=1, **kwargs):
     return output_queue.get()
 
 
-##################################################
-# End of helper functions for calculate_accuracy #
-##################################################
+###################################################
+# End of helper functions for _calculate_accuracy #
+###################################################
 
 
 ################################################
