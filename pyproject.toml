@@ -28,7 +28,9 @@ dependencies = [
     "rouge==1.0.1",
     "pre-commit==4.0.1",
     "pytest==8.3.4",
-    "word2number"
+    "word2number",
+    "latex2sympy2",
+    "python-Levenshtein"
 ]
 
 [tool.setuptools.packages.find]
