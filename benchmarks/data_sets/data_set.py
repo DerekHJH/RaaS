@@ -35,23 +35,103 @@ class Data_set(ABC):
 
             # Common processing for all datasets
             self.data = self.data[:tot_num_data]
-            self.data = self.data.apply(lambda row: self._create_answer_field(row), axis=1).apply(
-                lambda row: self._create_prompt_field(row), axis=1
-            )
+            self.data = self.data.apply(
+                lambda row: self.create_groundtruth_field(row), axis=1
+            ).apply(lambda row: self.create_prompt_field(row), axis=1)
 
     @abstractmethod
     def load_raw_data(self) -> pd.DataFrame:
+        """
+        Load raw data from the subclass.
+
+        Returns:
+            The raw data in pandas DataFrame format.
+        """
         raise NotImplementedError
 
     @abstractmethod
-    def _create_answer_field(self, row: Dict) -> Dict:
+    def create_groundtruth_field(self, row: Dict) -> Dict:
+        """
+        Create the row[f'groundtruth'] column in the dataset. To be used with the apply function.
+
+        Args:
+            row: One row of the dataset.
+
+        Returns:
+            The row with the row[f'groundtruth'] updated.
+        """
         raise NotImplementedError
 
     @abstractmethod
-    def _create_prompt_field(self, row: Dict) -> Dict:
+    def create_prompt_field(self, row: Dict) -> Dict:
+        """
+        Create the row[f'prompt'] column in the dataset. To be used with the apply function.
+
+        Args:
+            row: One row of the dataset.
+
+        Returns:
+            The row with the row[f'prompt'] updated.
+        """
         raise NotImplementedError
+
+    @abstractmethod
+    def extract_answer(self, pred_str: str, data_name: str, use_last_number=True) -> str:
+        """
+        Extract the answer from the ground truth or the long model output.
+
+        Args:
+            pred_str: The model output.
+            data_name: The name of the dataset.
+            use_last_number: Whether to use the last number in the output as the answer.
+
+        Returns:
+            The extracted answer.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def _calc_accuracy(self, row: Dict, approach: str) -> Dict:
+        """
+        Check the correctness of the model output and store the result in the f'accuracy_{approach}' column.
+
+        Args:
+            row: One row of the dataset.
+            approach: The approach used to generate the output.
+
+        Returns:
+            The row with the row[f'accuracy_{approach}']  updated.
+        """
+        raise NotImplementedError
+
+    # ALL following methods are common to all datasets.
+    # SHOULD NOT BE OVERRIDDEN.
+    # This is to ensure consistent interfaces.
+    # If you have a strong need to override some of the following methods,
+    # please refer to how calc_accruacy and _calc_accuracy methods are implemented.
+
+    def calc_accuracy(self, approach: str) -> None:
+        """
+        Compare the model output with the groundtruth and calculate the accuracy.
+        Store the accuracy in the f'accuracy_{approach}' column.
+
+        Args:
+            approach: The approach used to generate the output.
+
+        """
+        assert f"output_{approach}" in self.data.columns, f"output_{approach} not in the dataset"
+        assert "groundtruth" in self.data.columns, "groundtruth not in the dataset"
+
+        self.data = self.data.apply(lambda row: self._calc_accuracy(row, approach), axis=1)
 
     def update(self, new_data: Dict[str, List]) -> None:
+        """
+        Update the dataset with new dictionary data. If the length of the new data is less than the original data,
+        fill the rest with None.
+
+        Args:
+            new_data: The new data to update the dataset.
+        """
         for key, value in new_data.items():
             if len(value) < len(self.data):
                 logger.warning(
@@ -63,21 +143,13 @@ class Data_set(ABC):
             self.data[key] = value + (len(self.data) - len(value)) * [None]
 
     def save_dataset(self, path: str) -> None:
+        """
+        Save the dataset to the given path.
+
+        Args:
+            path: The path to save the dataset.
+        """
         self.data.to_json(os.path.join(path, "data.json"), orient="records", indent=4)
-
-    def calc_accuracy(self, approach: str) -> None:
-        """
-        Compare the model output with the answer and calculate the accuracy.
-        Store the accuracy in the f'accuracy_{approach}' column.
-        """
-        assert f"output_{approach}" in self.data.columns, f"output_{approach} not in the dataset"
-        assert "answer" in self.data.columns, "answer not in the dataset"
-
-        self.data = self.data.apply(lambda row: self._calc_accuracy(row, approach), axis=1)
-
-    @abstractmethod
-    def _calc_accuracy(self, row: Dict, approach: str) -> Dict:
-        raise NotImplementedError
 
     def __iter__(self):
         """
@@ -92,7 +164,3 @@ class Data_set(ABC):
 
     def __getitem__(self, idx):
         return self.data.iloc[idx]
-
-    @abstractmethod
-    def extract_ans_from_model_output(self, model_output):
-        raise NotImplementedError
