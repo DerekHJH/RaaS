@@ -3,7 +3,7 @@ import random
 import numpy as np
 import torch
 
-from benchmarks.data_sets import math500, needle
+from benchmarks.data_sets import math500
 
 
 def set_seed(seed):
@@ -17,7 +17,6 @@ def set_seed(seed):
 
 str2class = {
     "math500": math500.Math500,
-    "needle": needle.Needle,
 }
 
 
