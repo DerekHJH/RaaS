@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class E2EConfigs(Configs):
     # Overriding the default values of the parent class.
-    tot_num_data: int = int(1e6)
+    tot_num_data: int = 3
     all_datasets: List[str] = field(default_factory=lambda: ["math500"])  # Fixed mutable default
     all_models: List[str] = field(default_factory=lambda: ["peiyi9979/mistral-7b-sft"])
     all_approaches: List[str] = field(default_factory=lambda: ["full", "quest", "streamingllm"])
@@ -39,7 +39,6 @@ class E2EEvalEngine(EvalEngine):
             results[f"TPOT_{self.configs.approach}"].append(TPOT)
             results[f"num_decode_{self.configs.approach}"].append(num_decode)
         dataset.update(results)
-        dataset.calc_accuracy(self.configs.approach)
         dataset.save_dataset(self.configs.result_path)
 
         return dataset
@@ -47,7 +46,7 @@ class E2EEvalEngine(EvalEngine):
     def test_model(self, pipe, prompt, answer) -> Tuple[str, float, float, float, int]:
 
         torch.cuda.empty_cache()
-        pipe.model.reset_model()
+        # pipe.model.reset_model()
 
         input_ids = pipe.tokenizer.encode(prompt, return_tensors="pt").to("cuda")
 
@@ -118,6 +117,9 @@ class E2EEvalEngine(EvalEngine):
 
     def generate_presentation(self):
 
+        self.dataset.calc_accuracy(self.configs.approach)
+        self.dataset.save_dataset(self.configs.result_path)
+
         accuracy_avg = np.mean(self.dataset.data[f"accuracy_{self.configs.approach}"])
         TTFT_avg = np.mean(self.dataset.data[f"TTFT_{self.configs.approach}"])
         JCT_avg = np.mean(self.dataset.data[f"JCT_{self.configs.approach}"])
@@ -135,4 +137,3 @@ if __name__ == "__main__":
     configs = E2EConfigs.get_configs_from_cli_args()
     eval_engine = E2EEvalEngine(configs)
     eval_engine.run()
-    eval_engine.generate_presentation()

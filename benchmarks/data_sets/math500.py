@@ -688,8 +688,7 @@ class Math500(Data_set):
         return load_dataset("HuggingFaceH4/MATH-500", split="test").to_pandas()
 
     def create_groundtruth_field(self, row: Dict) -> Dict:
-        # ThMATH500 dataset from HuggingFaceH4/MATH-500 has already extracted the answer
-        row["groundtruth"] = row["answer"]
+        row["groundtruth"] = self.extract_answer(row["answer"])
         return row
 
     def create_prompt_field(self, row: Dict) -> Dict:
@@ -758,6 +757,9 @@ class Math500(Data_set):
 
     def _calc_accuracy(self, row: Dict, approach: str) -> Dict:
 
+        import pdb
+
+        pdb.set_trace()
         model_output: str = self.extract_answer(row[f"output_{approach}"], "math")
         groundtruth: str = row["groundtruth"]
         row[f"accuracy_{approach}"] = math_equal(model_output, groundtruth)
