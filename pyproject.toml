@@ -27,7 +27,8 @@ dependencies = [
     "numpy==2.1.2",
     "rouge==1.0.1",
     "pre-commit==4.0.1",
-    "pytest==8.3.4"
+    "pytest==8.3.4",
+    "word2number"
 ]
 
 [tool.setuptools.packages.find]
