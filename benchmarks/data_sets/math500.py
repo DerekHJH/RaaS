@@ -688,7 +688,7 @@ class Math500(Data_set):
         return load_dataset("HuggingFaceH4/MATH-500", split="test").to_pandas()
 
     def create_groundtruth_field(self, row: Dict) -> Dict:
-        row["groundtruth"] = self.extract_answer(row["answer"])
+        row["groundtruth"] = self.extract_answer(row["solution"], "math")
         return row
 
     def create_prompt_field(self, row: Dict) -> Dict:
