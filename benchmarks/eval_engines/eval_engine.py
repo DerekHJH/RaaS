@@ -100,7 +100,7 @@ class EvalEngine:
         self.pipe: Pipeline = self.load_pipeline(self.model, self.tokenizer)
 
         # Step 2: Run the inference and record results into the dataset
-        self.dataset = self.run_inference(self.pipe, self.dataset)
+        # self.dataset = self.run_inference(self.pipe, self.dataset)
 
         # Step 3: Generate the presentation
         self.generate_presentation()

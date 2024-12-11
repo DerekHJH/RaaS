@@ -76,21 +76,6 @@ class Data_set(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def extract_answer(self, pred_str: str, data_name: str, use_last_number=True) -> str:
-        """
-        Extract the answer from the ground truth or the long model output.
-
-        Args:
-            pred_str: The model output.
-            data_name: The name of the dataset.
-            use_last_number: Whether to use the last number in the output as the answer.
-
-        Returns:
-            The extracted answer.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
     def _calc_accuracy(self, row: Dict, approach: str) -> Dict:
         """
         Check the correctness of the model output and store the result in the f'accuracy_{approach}' column.
