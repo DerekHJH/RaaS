@@ -7,7 +7,7 @@ from typing import List, Tuple
 import numpy as np
 import torch
 from tqdm.contrib import tenumerate
-from transformers import Pipeline
+from transformers import DynamicCache, Pipeline
 
 from benchmarks.data_sets.data_set import Data_set
 from benchmarks.eval_engines.eval_engine import Configs, EvalEngine
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class E2EConfigs(Configs):
     # Overriding the default values of the parent class.
-    tot_num_data: int = int(1e6)
+    tot_num_data: int = 3
     all_datasets: List[str] = field(default_factory=lambda: ["math500"])  # Fixed mutable default
     all_models: List[str] = field(default_factory=lambda: ["peiyi9979/mistral-7b-sft"])
     all_approaches: List[str] = field(default_factory=lambda: ["full", "quest", "streamingllm"])
@@ -43,77 +43,87 @@ class E2EEvalEngine(EvalEngine):
 
         return dataset
 
-    def test_model(self, pipe, prompt, answer) -> Tuple[str, float, float, float, int]:
+    def test_model(
+        self, pipe: Pipeline, prompt: str, answer: str
+    ) -> Tuple[str, float, float, float, int]:
 
         torch.cuda.empty_cache()
         # pipe.model.reset_model()
 
-        input_ids = pipe.tokenizer.encode(prompt, return_tensors="pt").to("cuda")
+        # input_ids = pipe.tokenizer.encode(prompt, return_tensors="pt").to("cuda")
+        # start_time = time.perf_counter()
+        # model_output = pipe.model.generate(
+        #     input_ids,
+        #     max_length=pipe.model.config.max_position_embeddings,
+        #     num_return_sequences=1,
+        #     return_dict_in_generate=True,
+        #     use_cache=True,
+        #     pad_token_id=pipe.tokenizer.pad_token_id, # Just to suppress the warning
+        # )
 
-        start_time = time.perf_counter()
-        model_output = pipe.model.generate(
-            input_ids,
-            max_length=pipe.model.config.max_position_embeddings,
-            num_return_sequences=1,
-            return_dict_in_generate=True,
-            use_cache=True,
-        )
+        # JCT = time.perf_counter() - start_time
+        # num_decode = model_output.sequences[0].shape[0] - input_ids.shape[-1]
+        # TPOT = JCT / num_decode  # Include a short period of prefill stage
+        # TTFT = 0
 
-        JCT = time.perf_counter() - start_time
-        num_decode = model_output.sequences[0].shape[0] - input_ids.shape[-1]
-        TPOT = JCT / num_decode  # Include a short period of prefill stage
-        TTFT = 0
-
-        model_output = pipe.tokenizer.decode(model_output.sequences[0])
-        return model_output, TTFT, JCT, TPOT, num_decode
-
-        # input = pipe.tokenizer(prompt, return_tensors="pt").to("cuda:0")
-        # with torch.no_grad():
-
-        #     start_time = time.perf_counter()
-        #     # Prefill
-        #     output = pipe.model(
-        #         input_ids=input.input_ids,
-        #         past_key_values=None,
-        #         use_cache=True,
-        #     )
-        #     prefill_time = time.perf_counter() - start_time
-
-        #     # Store KV cache
-        #     past_key_values = output.past_key_values
-
-        #     # Produce the first token
-        #     pred_token_idx = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
-        #     generated_content = [pred_token_idx.item()]
-
-        #     decode_time = 0
-        #     # Decode autoregressively
-        #     for num_decode in range(pipe.model.config.max_position_embeddings - 1):
-
-        #         start_time = time.perf_counter()
-        #         outputs = pipe.model(
-        #             input_ids=pred_token_idx,
-        #             past_key_values=past_key_values,
-        #             use_cache=True,
-        #         )
-        #         decode_time += time.perf_counter() - start_time
-
-        #         # Store KV cache
-        #         past_key_values = outputs.past_key_values
-
-        #         # Produece the next token
-        #         pred_token_idx = outputs.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
-        #         generated_content += [pred_token_idx.item()]
-
-        #         if pred_token_idx.item() == pipe.tokenizer.eos_token_id:
-        #             break
-
-        #     TTFT = prefill_time
-        #     JCT = prefill_time + decode_time
-        #     TPOT = decode_time / num_decode
-
-        # model_output = pipe.tokenizer.decode(generated_content, skip_special_tokens=True)
+        # model_output = pipe.tokenizer.decode(model_output.sequences[0])
         # return model_output, TTFT, JCT, TPOT, num_decode
+
+        # Prepare the input
+        inputs = pipe.tokenizer(prompt, return_tensors="pt").to("cuda:0")
+        input_ids, attention_mask = inputs["input_ids"], inputs["attention_mask"]
+        cache_position = torch.arange(input_ids.shape[1], dtype=torch.int64, device="cuda:0")
+        past_key_values = DynamicCache()
+
+        with torch.no_grad():
+
+            # Prefill
+            start_time = time.perf_counter()
+            output = pipe.model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                cache_position=cache_position,
+                past_key_values=past_key_values,
+                use_cache=True,
+            )
+            prefill_time = time.perf_counter() - start_time
+
+            next_token_id = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
+            generated_content = [next_token_id.item()]
+
+            # Decode autoregressively
+            decode_time = []
+            for num_decode in range(pipe.model.config.max_position_embeddings - 1):
+
+                input_ids = next_token_id
+                attention_mask = torch.cat(
+                    [attention_mask, attention_mask.new_ones((attention_mask.shape[0], 1))], dim=-1
+                )
+                cache_position = cache_position[-1:] + 1
+
+                start_time = time.perf_counter()
+                outputs = pipe.model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    cache_position=cache_position,
+                    past_key_values=past_key_values,
+                    use_cache=True,
+                )
+                decode_time.append(time.perf_counter() - start_time)
+
+                # Produece the next token
+                next_token_id = outputs.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
+                generated_content += [next_token_id.item()]
+
+                if next_token_id.item() == pipe.tokenizer.eos_token_id:
+                    break
+
+            TTFT = prefill_time
+            JCT = prefill_time + np.sum(decode_time)
+            TPOT = np.sum(decode_time) / num_decode
+
+        model_output = pipe.tokenizer.decode(generated_content, skip_special_tokens=True)
+        return model_output, TTFT, JCT, TPOT, num_decode
 
     def generate_presentation(self):
 
