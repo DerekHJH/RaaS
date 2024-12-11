@@ -7,7 +7,7 @@ from typing import List, Tuple
 import numpy as np
 import torch
 from tqdm.contrib import tenumerate
-from transformers import DynamicCache, Pipeline
+from transformers import DynamicCache, Pipeline, SinkCache
 
 from benchmarks.data_sets.data_set import Data_set
 from benchmarks.eval_engines.eval_engine import Configs, EvalEngine
@@ -48,32 +48,14 @@ class E2EEvalEngine(EvalEngine):
     ) -> Tuple[str, float, float, float, int]:
 
         torch.cuda.empty_cache()
-        # pipe.model.reset_model()
-
-        # input_ids = pipe.tokenizer.encode(prompt, return_tensors="pt").to("cuda")
-        # start_time = time.perf_counter()
-        # model_output = pipe.model.generate(
-        #     input_ids,
-        #     max_length=pipe.model.config.max_position_embeddings,
-        #     num_return_sequences=1,
-        #     return_dict_in_generate=True,
-        #     use_cache=True,
-        #     pad_token_id=pipe.tokenizer.pad_token_id, # Just to suppress the warning
-        # )
-
-        # JCT = time.perf_counter() - start_time
-        # num_decode = model_output.sequences[0].shape[0] - input_ids.shape[-1]
-        # TPOT = JCT / num_decode  # Include a short period of prefill stage
-        # TTFT = 0
-
-        # model_output = pipe.tokenizer.decode(model_output.sequences[0])
-        # return model_output, TTFT, JCT, TPOT, num_decode
-
         # Prepare the input
         inputs = pipe.tokenizer(prompt, return_tensors="pt").to("cuda:0")
         input_ids, attention_mask = inputs["input_ids"], inputs["attention_mask"]
         cache_position = torch.arange(input_ids.shape[1], dtype=torch.int64, device="cuda:0")
-        past_key_values = DynamicCache()
+        if self.configs.approach == "full":
+            past_key_values = DynamicCache()
+        elif self.configs.approach == "streamingllm":
+            past_key_values = SinkCache(window_length=256, num_sink_tokens=4)
 
         with torch.no_grad():
 

@@ -140,17 +140,13 @@ class EvalEngine:
     def load_model_for_approach(self, model_name: str, approach_name: str) -> AutoModelForCausalLM:
         """
         Load the model and decide on the type of KV cache.
-
-        Before loading the model, we need to enable the tuple_kv_cache
-        for quest BC. The current huggingface kv cache is implemented
-        as Cache class https://huggingface.co/docs/transformers/main/en/kv_cache
         """
 
         logger.info(f"Loading the model \033[32m{model_name}\033[0m")
 
         model_config = AutoConfig.from_pretrained(model_name)
         if model_config.model_type == "llama":
-            if approach_name == "full":
+            if approach_name in ["full", "streamingllm"]:  # They differ only in cache type
                 from transformers import LlamaForCausalLM
 
                 model = LlamaForCausalLM.from_pretrained(
@@ -158,17 +154,6 @@ class EvalEngine:
                     device_map="cuda:0",
                     trust_remote_code=True,
                 )
-            elif approach_name == "streamingllm":
-                # Use the same llama code as the full model
-                # TODO:
-                pass
-                # from quest.models.full_llama import LlamaForCausalLM
-
-                # model = LlamaForCausalLM.from_pretrained(
-                #     model_name,
-                #     device_map="cuda:0",
-                #     trust_remote_code=True,
-                # )
             elif approach_name == "quest":
                 from quest.models.quest_llama_new import LlamaForCausalLM
 
