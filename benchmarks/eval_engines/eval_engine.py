@@ -147,7 +147,7 @@ class EvalEngine:
         model_config = AutoConfig.from_pretrained(model_name)
         if model_config.model_type == "llama":
             if approach_name in ["full", "streamingllm"]:  # They differ only in cache type
-                from transformers import LlamaForCausalLM
+                from quest.models.full_llama import LlamaForCausalLM
 
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
