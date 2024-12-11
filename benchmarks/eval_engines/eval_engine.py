@@ -178,6 +178,16 @@ class EvalEngine:
                     trust_remote_code=True,
                 )
                 # TODO: Finish initialization
+        elif model_config.model_type == "qwen2":
+            if approach_name in ["full", "streamingllm"]:  # They differ only in cache type
+
+                from quest.models.full_qwen2 import Qwen2ForCausalLM
+
+                model = Qwen2ForCausalLM.from_pretrained(
+                    model_name,
+                    device_map="cuda:0",
+                    trust_remote_code=True,
+                )
 
         return model
 

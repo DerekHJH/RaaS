@@ -19,9 +19,11 @@ logger = logging.getLogger(__name__)
 @dataclass
 class E2EConfigs(Configs):
     # Overriding the default values of the parent class.
-    tot_num_data: int = 3
+    tot_num_data: int = int(1e6)
     all_datasets: List[str] = field(default_factory=lambda: ["math500"])  # Fixed mutable default
-    all_models: List[str] = field(default_factory=lambda: ["peiyi9979/mistral-7b-sft"])
+    all_models: List[str] = field(
+        default_factory=lambda: ["peiyi9979/mistral-7b-sft", "AIDC-AI/Marco-o1"]
+    )
     all_approaches: List[str] = field(default_factory=lambda: ["full", "quest", "streamingllm"])
 
 
@@ -55,7 +57,7 @@ class E2EEvalEngine(EvalEngine):
         if self.configs.approach == "full":
             past_key_values = DynamicCache()
         elif self.configs.approach == "streamingllm":
-            past_key_values = SinkCache(window_length=256, num_sink_tokens=4)
+            past_key_values = SinkCache(window_length=60, num_sink_tokens=4)
 
         with torch.no_grad():
 

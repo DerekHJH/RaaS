@@ -1,6 +1,6 @@
 # Configure the following three variables as needed
 dataset="math500"
-model="peiyi9979/mistral-7b-sft"
+model="AIDC-AI/Marco-o1"
 approach="streamingllm"
 
 command="python3 main.py --dataset ${dataset} --model ${model} --approach ${approach}"
