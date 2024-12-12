@@ -501,10 +501,6 @@ def extract_answer(pred_str: str, data_name: str, use_last_number=True) -> str:
     # peiyi9979/mistral-7b-sft
     pred_str = pred_str.replace("\u043a\u0438", "")
 
-    # AIDC-AI/Marco-o1
-    if "<Output>" in pred_str:
-        pred = pred_str.split("<Output>")[-1]
-
     if "final answer is $" in pred_str and "$. I hope" in pred_str:
         # minerva_math
         tmp = pred_str.split("final answer is $", 1)[1]
