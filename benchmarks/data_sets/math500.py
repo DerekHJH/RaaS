@@ -25,13 +25,14 @@ class Math500(Data_set):
 
     def create_prompt_field(self, row: Dict) -> Dict:
         # TODO(hjh): Create more complex prompts
-        row["prompt"] = (
-            row["problem"]
-            + "\nLet's think step by step. Please output in latex format after the string 'the final answer is:'."
-        )
+        row["prompt"] = row["problem"] + "\nLet's think step by step and output in latex format."
         return row
 
     def _calc_accuracy(self, row: Dict, approach: str) -> Dict:
+
+        import pdb
+
+        pdb.set_trace()
 
         model_output: str = extract_answer(row[f"output_{approach}"], "math")
         groundtruth: str = row["groundtruth"]
