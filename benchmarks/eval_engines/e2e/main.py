@@ -51,7 +51,14 @@ class E2EEvalEngine(EvalEngine):
 
         torch.cuda.empty_cache()
         # Prepare the input
-        inputs = pipe.tokenizer(prompt, return_tensors="pt").to("cuda:0")
+        try:
+            extended_prompt = pipe.tokenizer.apply_chat_template(
+                [{"role": "user", "content": prompt}], tokenize=False, add_generation_prompt=True
+            )
+        except Exception as e:
+            logger.warning(f"No chat template found. Using the prompt as is.")
+            extended_prompt = prompt
+        inputs = pipe.tokenizer(extended_prompt, return_tensors="pt").to("cuda:0")
         input_ids, attention_mask = inputs["input_ids"], inputs["attention_mask"]
         cache_position = torch.arange(input_ids.shape[1], dtype=torch.int64, device="cuda:0")
         if self.configs.approach == "full":
@@ -77,7 +84,9 @@ class E2EEvalEngine(EvalEngine):
 
             # Decode autoregressively
             decode_time = []
-            for num_decode in range(pipe.model.config.max_position_embeddings - 1):
+            for num_decode in range(
+                pipe.model.config.max_position_embeddings - 512
+            ):  # Reserve 1024 tokens for the prompt
 
                 input_ids = next_token_id
                 attention_mask = torch.cat(

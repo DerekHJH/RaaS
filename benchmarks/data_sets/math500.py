@@ -25,7 +25,7 @@ class Math500(Data_set):
 
     def create_prompt_field(self, row: Dict) -> Dict:
         # TODO(hjh): Create more complex prompts
-        row["prompt"] = row["problem"] + "\nLet's think step by step:"
+        row["prompt"] = row["problem"] + "\nLet's think step by step and output in latex format."
         return row
 
     def _calc_accuracy(self, row: Dict, approach: str) -> Dict:
