@@ -262,5 +262,7 @@ def enable_quest_attention_eval(model, args):
                 forward, model._modules[name]
             )
 
-            model._modules[name].token_budget = args.token_budget
-            model._modules[name].chunk_size = args.chunk_size
+            # model._modules[name].token_budget = args.token_budget
+            # model._modules[name].chunk_size = args.chunk_size
+            model._modules[name].token_budget = args["token_budget"]
+            model._modules[name].chunk_size = args["chunk_size"]
