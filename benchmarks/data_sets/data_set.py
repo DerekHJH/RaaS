@@ -79,13 +79,14 @@ class Data_set(ABC):
     def _calc_accuracy(self, row: Dict, approach: str) -> Dict:
         """
         Check the correctness of the model output and store the result in the f'accuracy_{approach}' column.
+        And store the final output in the f'final_output_{approach}' column.
 
         Args:
             row: One row of the dataset.
             approach: The approach used to generate the output.
 
         Returns:
-            The row with the row[f'accuracy_{approach}']  updated.
+            The row with the row[f'accuracy_{approach}'], row[f'final_output_{approach}'] updated.
         """
         raise NotImplementedError
 

@@ -6,7 +6,7 @@ from datasets import load_dataset
 from transformers import AutoTokenizer
 
 from benchmarks.data_sets.data_set import Data_set
-from benchmarks.data_sets.utils import extract_answer, math_equal
+from benchmarks.data_sets.utils import extract_answer, math_equal, rouge_score
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,9 @@ class Math500(Data_set):
 
         model_output: str = extract_answer(row[f"output_{approach}"], "math")
         groundtruth: str = row["groundtruth"]
-        row[f"accuracy_{approach}"] = math_equal(model_output, groundtruth)
+        # row[f"accuracy_{approach}"] = math_equal(model_output, groundtruth)
+        row[f"final_output_{approach}"] = model_output
+        row[f"accuracy_{approach}"] = rouge_score(model_output, groundtruth)
         return row
 
 
