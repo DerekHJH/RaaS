@@ -57,7 +57,7 @@ class E2EEvalEngine(EvalEngine):
         if self.configs.approach == "full":
             past_key_values = DynamicCache()
         elif self.configs.approach == "streamingllm":
-            past_key_values = SinkCache(window_length=60, num_sink_tokens=4)
+            past_key_values = SinkCache(window_length=128, num_sink_tokens=4)
 
         with torch.no_grad():
 
