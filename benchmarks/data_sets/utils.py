@@ -502,8 +502,8 @@ def extract_answer(pred_str: str, data_name: str, use_last_number=True) -> str:
     pred_str = pred_str.replace("\u043a\u0438", "")
 
     # AIDC-AI/Marco-o1
-    if "<Output>" in pred_str and "</Output>" in pred_str:
-        pred = pred_str.split("<Output>")[-1].split("</Output>")[0].strip()
+    if "<Output>" in pred_str:
+        pred = pred_str.split("<Output>")[-1]
 
     if "final answer is $" in pred_str and "$. I hope" in pred_str:
         # minerva_math
