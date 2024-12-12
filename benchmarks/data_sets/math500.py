@@ -30,10 +30,6 @@ class Math500(Data_set):
 
     def _calc_accuracy(self, row: Dict, approach: str) -> Dict:
 
-        import pdb
-
-        pdb.set_trace()
-
         model_output: str = extract_answer(row[f"output_{approach}"], "math")
         groundtruth: str = row["groundtruth"]
         row[f"accuracy_{approach}"] = math_equal(model_output, groundtruth)
