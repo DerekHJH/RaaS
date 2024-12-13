@@ -140,10 +140,10 @@ class Data_set(ABC):
     def __iter__(self):
         """
         Iterate over the dataset, providing the prompt
-        and answers for the test driver.
+        and groundtruths for the test driver.
         """
         for _, row in self.data.iterrows():
-            yield row["prompt"], row["answer"]
+            yield row["prompt"], row["groundtruth"]
 
     def __len__(self):
         return len(self.data)
