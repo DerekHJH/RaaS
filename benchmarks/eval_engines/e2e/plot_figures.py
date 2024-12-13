@@ -11,8 +11,8 @@ from benchmarks.eval_engines.plot_utils import (
     model_names_map,
 )
 
-all_datasets = ["math500", "math500"]
-all_models = ["peiyi9979/mistral-7b-sft", "peiyi9979/mistral-7b-sft"]
+all_datasets = ["math500", "aime"]
+all_models = ["peiyi9979/mistral-7b-sft", "Qwen/Qwen2.5-Math-7B-Instruct"]
 all_approaches = ["full", "streamingllm"]
 colors = (
     ["#33CC33"]
