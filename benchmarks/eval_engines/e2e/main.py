@@ -21,7 +21,7 @@ class E2EConfigs(Configs):
     # Overriding the default values of the parent class.
     tot_num_data: int = int(1e6)
     all_datasets: List[str] = field(
-        default_factory=lambda: ["math500", "AIME"]
+        default_factory=lambda: ["math500", "aime"]
     )  # Fixed mutable default
     all_models: List[str] = field(
         default_factory=lambda: [
