@@ -36,9 +36,7 @@ class AIME(Data_set):
 
         model_output: str = extract_answer(row[f"output_{approach}"], "aime")
         groundtruth: str = row["groundtruth"]
-        import pdb
 
-        pdb.set_trace()
         row[f"accuracy_{approach}"] = math_equal(model_output, groundtruth)
         row[f"final_output_{approach}"] = model_output
         # row[f"accuracy_{approach}"] = rouge_score(model_output, groundtruth)
