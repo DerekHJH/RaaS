@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 @dataclass
 class E2EConfigs(Configs):
     # Overriding the default values of the parent class.
-    tot_num_data: int = 3
+    tot_num_data: int = 200
     all_datasets: List[str] = field(
-        default_factory=lambda: ["math500", "aime"]
+        default_factory=lambda: ["math500", "aime", "gsm8k"]
     )  # Fixed mutable default
     all_models: List[str] = field(
         default_factory=lambda: [
