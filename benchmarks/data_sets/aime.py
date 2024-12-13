@@ -20,9 +20,9 @@ class AIME(Data_set):
         return load_dataset("qq8933/AIME_1983_2024", split="train").to_pandas()
 
     def create_groundtruth_field(self, row: Dict) -> Dict:
-        row["groundtruth"] = str(
-            row["Answer"]
-        )  # No need to extract the answer becuase it is already in good format
+        row["groundtruth"] = row[
+            "Answer"
+        ]  # No need to extract the answer becuase it is already in good format
         return row
 
     def create_prompt_field(self, row: Dict) -> Dict:
@@ -35,7 +35,7 @@ class AIME(Data_set):
     def _calc_accuracy(self, row: Dict, approach: str) -> Dict:
 
         model_output: str = extract_answer(row[f"output_{approach}"], "aime")
-        groundtruth: str = row["groundtruth"]
+        groundtruth: str = str(row["groundtruth"])
 
         row[f"accuracy_{approach}"] = math_equal(model_output, groundtruth)
         row[f"final_output_{approach}"] = model_output
