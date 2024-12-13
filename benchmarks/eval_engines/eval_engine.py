@@ -30,7 +30,7 @@ class Configs:
     dataset: str
     model: str
     approach: str
-    tot_num_data: int = int(1e6)
+    tot_num_data: int = 200
     all_datasets: List[str] = field(default_factory=lambda: ["math500"])
     all_models: List[str] = field(default_factory=lambda: ["peiyi9979/mistral-7b-sft"])
     all_approaches: List[str] = field(default_factory=lambda: ["full", "quest", "raas"])
