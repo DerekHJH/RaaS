@@ -11,16 +11,16 @@ from benchmarks.evals.utils import (
     model_names_map,
 )
 
-all_datasets = ["math500", "aime"]
+all_datasets = ["gsm8k", "aime", "math500"]
 all_models = ["peiyi9979/mistral-7b-sft", "Qwen/Qwen2.5-Math-7B-Instruct"]
-all_approaches = ["full", "streamingllm"]
+all_approaches = ["full", "sink-64", "sink-128", "sink-256", "sink-512", "sink-1024"]
 colors = (
     ["#33CC33"]
-    + ["#FF3333"]
+    # + ["#FF3333"]
     + ["#CC6600", "#FF8000", "#FF9933", "#FFB366", "#FFCC99"]
     + ["#0076A8", "#2A9BD5", "#4DA6D6", "#7FB3D5", "#A3C1E0"]
 )
-markers = ["o"] * 2 + ["s"] * 5 + ["*"] * 5
+markers = ["o"] * 1 + ["s"] * 5 + ["*"] * 5
 
 
 if __name__ == "__main__":
