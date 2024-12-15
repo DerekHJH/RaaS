@@ -5,8 +5,8 @@ from torch import nn
 import torch.utils.checkpoint
 import logging
 import types
-from .full_llama import (
-    LlamaAttention,
+from .full_qwen2 import (
+    Qwen2Attention,
     apply_rotary_pos_emb,
     repeat_kv,
     Cache
@@ -237,7 +237,7 @@ def enable_quest_attention_eval(model, args):
                 args,
             )
 
-        if isinstance(module, (LlamaAttention, )):
+        if isinstance(module, (Qwen2Attention, )):
             model._modules[name].flash_forward = model._modules[name].forward
             model._modules[name].forward = types.MethodType(
                 forward, model._modules[name]

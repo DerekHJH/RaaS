@@ -211,6 +211,22 @@ class EvalEngine:
                     device_map="cuda:0",
                     trust_remote_code=True,
                 )
+            elif "quest" in approach_name:
+                from quest.models.full_qwen2 import Qwen2ForCausalLM
+                from quest.models.quest_qwen2 import enable_quest_attention_eval
+
+                model = Qwen2ForCausalLM.from_pretrained(
+                    model_name,
+                    device_map="cuda:0",
+                    trust_remote_code=True,
+                )
+                enable_quest_attention_eval(
+                    model,
+                    {
+                        "cache_budget": int(approach_name.split("-")[-1]),
+                        "page_size": 16,  # Fixed as stated in the paper
+                    },
+                )
 
         return model
 
