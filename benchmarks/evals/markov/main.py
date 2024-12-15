@@ -14,7 +14,7 @@ from tqdm.contrib import tenumerate
 from transformers import Pipeline
 
 from benchmarks.data_sets.data_set import Data_set
-from benchmarks.eval_engines.eval_engine import Configs, EvalEngine
+from benchmarks.evals.eval_engine import Configs, EvalEngine
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)

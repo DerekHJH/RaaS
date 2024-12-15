@@ -16,7 +16,7 @@ from transformers import (
 )
 
 from benchmarks.data_sets.data_set import Data_set
-from benchmarks.eval_engines.utils import str2class
+from benchmarks.evals.utils import str2class
 
 # from quest.utils.cache_utils import Cache, SinkCache
 
@@ -146,7 +146,7 @@ class EvalEngine:
 
         model_config = AutoConfig.from_pretrained(model_name)
         if model_config.model_type == "llama":
-            if approach_name in ["full", "streamingllm"]:  # They differ only in cache type
+            if approach_name == "full" or "sink" in approach_name:  # They differ only in cache type
                 from quest.models.full_llama import LlamaForCausalLM
 
                 model = LlamaForCausalLM.from_pretrained(

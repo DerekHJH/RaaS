@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from benchmarks.eval_engines.plot_utils import (
+from benchmarks.evals.utils import (
     dataset_metrics_map,
     dataset_names_map,
     model_names_map,
