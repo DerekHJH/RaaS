@@ -44,14 +44,20 @@ class EvalConfigs:
             "Qwen/Qwen2.5-Math-7B-Instruct",
         ]
     )
-    all_approaches: List[str] = field(default_factory=lambda: ["full", "sink-128", "quest"])
+    all_approaches: List[str] = field(
+        default_factory=lambda: [
+            "full",
+            "sink-64",
+            "sink-128",
+            "sink-256",
+            "sink-512",
+            "sink-1024",
+            "quest",
+        ]
+    )
 
     seed: int = 42
     result_path: str = "results"
-
-    # Quest configs
-    page_size: int = 16  # Also RaaS config
-    token_budget: int = 1024
 
     @classmethod
     def get_configs_from_cli_args(cls) -> "EvalConfigs":
@@ -267,10 +273,13 @@ class EvalEngine:
         inputs = pipe.tokenizer(extended_prompt, return_tensors="pt").to("cuda:0")
         input_ids, attention_mask = inputs["input_ids"], inputs["attention_mask"]
         cache_position = torch.arange(input_ids.shape[1], dtype=torch.int64, device="cuda:0")
+
+        # Initialize the cache
         if self.configs.approach == "full":
             past_key_values = DynamicCache()
-        elif self.configs.approach == "streamingllm":
-            past_key_values = SinkCache(window_length=128, num_sink_tokens=4)
+        elif "sink" in self.configs.approach:
+            window_length = int(self.configs.approach.split("-")[-1])
+            past_key_values = SinkCache(window_length=window_length, num_sink_tokens=4)
 
         with torch.no_grad():
 

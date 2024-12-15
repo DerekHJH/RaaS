@@ -1,11 +1,18 @@
-# Configure the following three variables as needed
-dataset="aime"
-# model="AIDC-AI/Marco-o1"
-# model="peiyi9979/mistral-7b-sft"
-model="Qwen/Qwen2.5-Math-7B-Instruct"
-approach="full"
 
-command="python3 main.py --dataset ${dataset} --model ${model} --approach ${approach}"
-echo "Running command: ${command}"
-${command}
+dataset="aime"
+model="Qwen/Qwen2.5-Math-7B-Instruct"
+all_approaches=("full" "sink-64" "sink-128" "sink-256" "sink-512" "sink-1024")
+
+# Take the arguments from the command line
+if [ $# -eq 2 ]; then
+    dataset=$1
+    model=$2
+fi
+
+
+for approach in ${all_approaches[@]}; do
+    command="python3 main.py --dataset ${dataset} --model ${model} --approach ${approach}"
+    echo "Running command: ${command}"
+    ${command}
+done
 
