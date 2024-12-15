@@ -123,8 +123,6 @@ def forward(
     key_states = repeat_kv(key_states, self.num_key_value_groups)
     value_states = repeat_kv(value_states, self.num_key_value_groups)
 
-    kv_seq_len = past_key_value.get_seq_length() # probably  we need to further add current_seq_len
-
     attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(
         self.head_dim
     )
@@ -133,8 +131,6 @@ def forward(
     ############################
     # Start of Quest Attention #
     ############################
-    # import pdb
-    # pdb.set_trace()
     sign = (query_states > 0) + (~(query_states > 0)) * -1
     max_key = key_states * sign
     postive_query = query_states * sign
@@ -175,7 +171,9 @@ def forward(
         chunk_max_key.transpose(2, 3),
     )
 
-    if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
+    kv_seq_len = past_key_value.get_seq_length()
+
+    if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len): # Do not support TP
         raise ValueError(
             f"Attention weights should be of size {(bsz, self.num_heads, q_len, kv_seq_len)}, but is"
             f" {attn_weights.size()}"
