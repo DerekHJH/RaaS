@@ -1,9 +1,9 @@
 # Configure the following three variables as needed
-dataset="math500"
+dataset="aime"
 # model="AIDC-AI/Marco-o1"
 # model="peiyi9979/mistral-7b-sft"
 model="Qwen/Qwen2.5-Math-7B-Instruct"
-approach="full"
+approach="streamingllm"
 
 command="python3 main.py --dataset ${dataset} --model ${model} --approach ${approach}"
 echo "Running command: ${command}"
