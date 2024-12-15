@@ -52,7 +52,11 @@ class EvalConfigs:
             "sink-256",
             "sink-512",
             "sink-1024",
-            "quest",
+            "quest-64",
+            "quest-128",
+            "quest-256",
+            "quest-512",
+            "quest-1024",
         ]
     )
 
@@ -253,7 +257,7 @@ class EvalEngine:
                 [{"role": "user", "content": prompt}], tokenize=False, add_generation_prompt=True
             )
         except Exception as e:
-            logger.warning(f"No chat template found. Using the prompt as is.")
+            logger.debug(f"No chat template found. Using the prompt as is.")
             extended_prompt = prompt
         inputs = pipe.tokenizer(extended_prompt, return_tensors="pt").to("cuda:0")
         input_ids, attention_mask = inputs["input_ids"], inputs["attention_mask"]
