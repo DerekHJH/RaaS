@@ -5,13 +5,12 @@ from torch import nn
 import torch.utils.checkpoint
 import logging
 import types
-from transformers.models.llama.modeling_llama import (
+from .full_llama import (
     LlamaAttention,
     apply_rotary_pos_emb,
     repeat_kv,
     Cache
 )
-from transformers.cache_utils import DynamicCache
 
 # from transformers.models.qwen2.modeling_qwen2 import Qwen2Attention
 
@@ -134,6 +133,8 @@ def forward(
     ############################
     # Start of Quest Attention #
     ############################
+    # import pdb
+    # pdb.set_trace()
     sign = (query_states > 0) + (~(query_states > 0)) * -1
     max_key = key_states * sign
     postive_query = query_states * sign

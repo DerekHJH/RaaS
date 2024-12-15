@@ -185,7 +185,6 @@ class EvalEngine:
                     device_map="cuda:0",
                     trust_remote_code=True,
                 )
-
                 enable_quest_attention_eval(
                     model,
                     {
