@@ -1,6 +1,6 @@
 
 dataset="aime"
-model="Qwen/Qwen2.5-Math-7B-Instruct"
+model="peiyi9979/mistral-7b-sft"
 all_approaches=("full" "sink-64" "sink-128" "sink-256" "sink-512" "sink-1024")
 
 # Take the arguments from the command line

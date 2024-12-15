@@ -172,38 +172,23 @@ class EvalEngine:
                     device_map="cuda:0",
                     trust_remote_code=True,
                 )
-            elif approach_name == "quest":
-                from transformers import LlamaForCausalLM
+            elif "quest" in approach_name:
+                from quest.models.full_llama import LlamaForCausalLM
+                from quest.models.quest_llama import enable_quest_attention_eval
 
-                from evaluation.llama import enable_tuple_kv_cache_for_llama
-
-                enable_tuple_kv_cache_for_llama()
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
                     device_map="cuda:0",
                     trust_remote_code=True,
                 )
-                from evaluation.quest_attention import enable_quest_attention_eval
 
                 enable_quest_attention_eval(
                     model,
                     {
-                        "token_budget": self.configs.token_budget,
-                        "chunk_size": self.configs.page_size,
+                        "cache_budget": int(approach_name.split("-")[-1]),
+                        "page_size": 16,  # Fixed as stated in the paper
                     },
                 )
-                # model = LlamaForCausalLM.from_pretrained(
-                #     model_name,
-                #     device_map="cuda:0",
-                #     trust_remote_code=True,
-                # )
-                # model.quest_init(
-                #     page_size=self.configs.page_size,
-                #     max_seq_len=model.config.max_position_embeddings,
-                #     token_budget=self.configs.token_budget,
-                #     dtype=torch.float16,
-                #     device=torch.device("cuda:0"),
-                # )
             elif approach_name == "raas":
                 from quest.models.raas_llama import LlamaForCausalLM
 
@@ -278,8 +263,11 @@ class EvalEngine:
         if self.configs.approach == "full":
             past_key_values = DynamicCache()
         elif "sink" in self.configs.approach:
-            window_length = int(self.configs.approach.split("-")[-1])
-            past_key_values = SinkCache(window_length=window_length, num_sink_tokens=4)
+            cache_budget = int(self.configs.approach.split("-")[-1])
+            past_key_values = SinkCache(window_length=cache_budget, num_sink_tokens=4)
+        elif "quest" in self.configs.approach:
+            # Modifications happen on the model loading stage instead of here
+            past_key_values = DynamicCache()  #  quest attention will not discard any cache
 
         with torch.no_grad():
 
