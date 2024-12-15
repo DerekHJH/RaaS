@@ -10,7 +10,6 @@ repos:
     hooks:
     - id: black
       args: ["--line-length", "100"]
-      files: benchmarks/
 
   # - repo: https://github.com/pre-commit/mirrors-mypy
   #   rev: v1.13.0
@@ -22,5 +21,4 @@ repos:
     rev: 5.13.2
     hooks:
       - id: isort
-        files: benchmarks/
         args: ["--profile", "black"]
