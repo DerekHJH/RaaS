@@ -102,4 +102,4 @@ if __name__ == "__main__":
         )
 
     # Save
-    plt.savefig("results/results.pdf", format="pdf", bbox_inches="tight")
+    plt.savefig("results/acc_vs_speed.pdf", format="pdf", bbox_inches="tight")
