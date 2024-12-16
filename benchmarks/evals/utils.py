@@ -26,6 +26,15 @@ str2class = {
 # Utils for plottings
 model_names_map = {
     "peiyi9979/mistral-7b-sft": "Mistral 7B SFT",
+    "Qwen/Qwen2.5-Math-7B-Instruct": "Qwen 2.5 Math 7B Instruct",
 }
-dataset_names_map = {"math500": "MATH500"}
-dataset_metrics_map = {"math500": "Accuracy"}
+dataset_names_map = {
+    "math500": "MATH500",
+    "aime": "AIME",
+    "gsm8k": "GSM8K",
+}
+dataset_metrics_map = {
+    "math500": "Accuracy",
+    "aime": "Accuracy",
+    "gsm8k": "Accuracy",
+}
