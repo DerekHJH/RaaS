@@ -1,4 +1,5 @@
 import logging
+import os
 
 import pandas as pd
 from tqdm.contrib import tenumerate
@@ -8,7 +9,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 llm = LLM(model="meta-llama/Llama-3.1-8B-Instruct")
-tot_length = 2**12  # 32K
+tot_length = 2**16  # 32K
 
 prefill_lengths = list(range(2**10, tot_length, 2**10))
 prefill_time = []
@@ -22,14 +23,15 @@ for i, prefill_length in tenumerate(prefill_lengths):
         sampling_params=sampling_params,
         prompt_token_ids=[i]
         * prefill_length,  # Dummy tokens, different in each iteration to avoid KV reuse
-        # use_tqdm=False, # Prevent excessive output
+        use_tqdm=False,  # Prevent excessive output
     )
     prefill_time.append(output[0].metrics.first_token_time - output[0].metrics.first_scheduled_time)
     decode_time.append(output[0].metrics.finished_time - output[0].metrics.first_token_time)
 
+os.makedirs("results", exist_ok=True)
 pd.DataFrame(
     {
-        "prefill_length": prefill_lengths,
+        "prefill_lengths": prefill_lengths,
         "prefill_time": prefill_time,
         "decode_time": decode_time,
     }

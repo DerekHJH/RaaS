@@ -11,7 +11,7 @@ from benchmarks.evals.utils import (
     model_names_map,
 )
 
-dataset_names = ["aime"]
+dataset_names = ["aime", "math500", "gsm8k"]
 model_name = "AIDC-AI/Marco-o1"
 approach_name = "full"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -20,7 +20,7 @@ longben_dataset_names = ["2wikimqa", "multi_news", "samsum", "passage_count", "l
 if __name__ == "__main__":
 
     # Give me two axs
-    fig, axs = plt.subplots(2, 1, sharex=True, sharey=True, figsize=(8, 5), dpi=600)
+    fig, axs = plt.subplots(1, 2, figsize=(8, 2.5), dpi=600)
 
     # prob all jsonl files in the directory
     # for file in glob.glob("/data0/hujunhao/data/longbench/*.jsonl"):
@@ -88,14 +88,18 @@ if __name__ == "__main__":
             linewidth=1.5,
         )
 
-    axs[1].set_xlabel("# tokens")
-    axs[1].set_ylabel("CDF")
-    axs[0].set_ylabel("CDF")
-    axs[0].legend(fontsize=8)
-    axs[1].legend(fontsize=8)
+    axs[0].set_xlabel("# tokens", fontsize=10)
+    axs[1].set_xlabel("# tokens", fontsize=10)
+    axs[0].set_ylabel("CDF", fontsize=10)
+    axs[0].set_title("(a) Long-prefill workloads", y=-0.35)
+    axs[1].set_title("(b) Long-decode workloads", y=-0.35)
 
-    axs[0].set_title("(a) Long-prefill workloads", y=-0.2)
-    axs[1].set_title("(b) Long-decode workloads", y=-0.38)
+    for ax in axs:
+        ax.legend(fontsize=9)
+        ax.tick_params(axis="x", labelsize=10)
+        ax.tick_params(axis="y", labelsize=10)
+        ax.set_xlim(0, 33000)
+        ax.set_ylim(0, 1)
 
     # Figure configurations
     plt.savefig(

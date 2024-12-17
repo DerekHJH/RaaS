@@ -51,6 +51,7 @@ if __name__ == "__main__":
                 data,
                 positions=range(len(data)),
                 tick_labels=labels,
+                # showfliers=False,
             )
             axs[i][j].tick_params(axis="x", rotation=45)
 
