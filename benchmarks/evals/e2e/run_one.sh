@@ -1,13 +1,19 @@
 
 dataset="aime"
-model="peiyi9979/mistral-7b-sft"
-# all_approaches=("full" "sink-64" "sink-128" "sink-256" "sink-512" "sink-1024")
-all_approaches=("quest-64" "quest-128" "quest-256" "quest-512" "quest-1024")
+model="AIDC-AI/Marco-o1"
+all_approaches=("full" "sink-64" "sink-128" "sink-256" "sink-512" "sink-1024" "quest-64" "quest-128" "quest-256" "quest-512" "quest-1024")
 
 # Take the arguments from the command line
-if [ $# -eq 2 ]; then
+if [ $# -eq 0 ]; then
+    echo "No arguments provided. Using default values."
+elif [ $# -eq 1 ]; then
+    dataset=$1
+elif [ $# -eq 2 ]; then
     dataset=$1
     model=$2
+else
+    echo "Too many arguments provided. Usage: $0 [dataset] [model]"
+    exit 1
 fi
 
 

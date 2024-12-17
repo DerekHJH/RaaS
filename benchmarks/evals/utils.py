@@ -32,6 +32,11 @@ dataset_names_map = {
     "math500": "MATH500",
     "aime": "AIME",
     "gsm8k": "GSM8K",
+    "2wikimqa": "2WikiMQA",
+    "multi_news": "MultiNews",
+    "samsum": "SAMSum",
+    "passage_count": "PassageCount",
+    "lcc": "LCC",
 }
 dataset_metrics_map = {
     "math500": "Accuracy",
