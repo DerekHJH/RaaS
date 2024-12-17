@@ -249,7 +249,7 @@ class EvalEngine:
 
         logger.info("Run the inference. This might take a long time... Good luck")
         results = defaultdict(list)
-        for i, (prompt, answer) in tenumerate(dataset, desc="dataset", leave=False):
+        for i, (prompt, answer) in tenumerate(dataset, desc="dataset", leave=True):
             model_output, TTFT, JCT, TPOT, num_decode = self.test_model(pipe, prompt, answer)
             results[f"output_{self.configs.approach}"].append(model_output)
             results[f"TTFT_{self.configs.approach}"].append(TTFT)
