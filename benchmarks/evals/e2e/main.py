@@ -198,10 +198,8 @@ class EvalEngine:
                     },
                 )
             elif "raas" in approach_name:
-                from quest.models.raas_llama import (
-                    LlamaForCausalLM,
-                    enable_raas_attention_eval,
-                )
+                from quest.models.full_llama import LlamaForCausalLM
+                from quest.models.raas_llama import enable_raas_attention_eval
 
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
@@ -242,10 +240,8 @@ class EvalEngine:
                     },
                 )
             elif "raas" in approach_name:
-                from quest.models.raas_qwen2 import (
-                    Qwen2ForCausalLM,
-                    enable_raas_attention_eval,
-                )
+                from quest.models.full_qwen2 import LlamaForCausalLM
+                from quest.models.raas_qwen2 import enable_raas_attention_eval
 
                 model = Qwen2ForCausalLM.from_pretrained(
                     model_name,
