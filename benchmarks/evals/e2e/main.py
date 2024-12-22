@@ -57,6 +57,11 @@ class EvalConfigs:
             "quest-256",
             "quest-512",
             "quest-1024",
+            "raas-64",
+            "raas-128",
+            "raas-256",
+            "raas-512",
+            "raas-1024",
         ]
     )
 
@@ -192,15 +197,24 @@ class EvalEngine:
                         "page_size": 16,  # Fixed as stated in the paper
                     },
                 )
-            elif approach_name == "raas":
-                from quest.models.raas_llama import LlamaForCausalLM
+            elif "raas" in approach_name:
+                from quest.models.raas_llama import (
+                    LlamaForCausalLM,
+                    enable_raas_attention_eval,
+                )
 
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
                     device_map="cuda:0",
                     trust_remote_code=True,
                 )
-                # TODO: Finish initialization
+                enable_raas_attention_eval(
+                    model,
+                    {
+                        "cache_budget": int(approach_name.split("-")[-1]),
+                        "page_size": 16,  # Fixed as stated in the paper
+                    },
+                )
         elif model_config.model_type == "qwen2":
             if approach_name == "full" or "sink" in approach_name:  # They differ only in cache type
 
@@ -221,6 +235,24 @@ class EvalEngine:
                     trust_remote_code=True,
                 )
                 enable_quest_attention_eval(
+                    model,
+                    {
+                        "cache_budget": int(approach_name.split("-")[-1]),
+                        "page_size": 16,  # Fixed as stated in the paper
+                    },
+                )
+            elif "raas" in approach_name:
+                from quest.models.raas_qwen2 import (
+                    Qwen2ForCausalLM,
+                    enable_raas_attention_eval,
+                )
+
+                model = Qwen2ForCausalLM.from_pretrained(
+                    model_name,
+                    device_map="cuda:0",
+                    trust_remote_code=True,
+                )
+                enable_raas_attention_eval(
                     model,
                     {
                         "cache_budget": int(approach_name.split("-")[-1]),
@@ -287,6 +319,8 @@ class EvalEngine:
         elif "quest" in self.configs.approach:
             # Modifications happen on the model loading stage instead of here
             past_key_values = DynamicCache()  #  quest attention will not discard any cache
+        elif "raas" in self.configs.approach:
+            past_key_values = DynamicCache()
 
         with torch.no_grad():
 

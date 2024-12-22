@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
     # Draw x metric name
     for j in range(1, len(all_models) + 1):
-        axs[-1][-j].set_xlabel(f"{x_metric_name}", fontsize=20)
+        axs[-1][-j].set_xlabel("# decode tokens", fontsize=20)
 
     for i, dataset_name in enumerate(all_datasets):
         axs[i][0].set_ylabel(dataset_metrics_map[dataset_name], fontsize=20)
@@ -102,4 +102,4 @@ if __name__ == "__main__":
         )
 
     # Save
-    plt.savefig("results/acc_vs_speed.pdf", format="pdf", bbox_inches="tight")
+    plt.savefig("results/acc_vs_speed.pdf", format="pdf", bbox_inches="tight", dpi=600)
