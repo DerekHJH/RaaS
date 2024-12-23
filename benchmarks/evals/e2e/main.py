@@ -316,7 +316,9 @@ class EvalEngine:
             # Modifications happen on the model loading stage instead of here
             past_key_values = DynamicCache()  #  quest attention will not discard any cache
         elif "raas" in self.configs.approach:
-            past_key_values = DynamicCache()
+            from quest.utils.cache_utils import RaaSCache
+
+            past_key_values = RaaSCache()
 
         with torch.no_grad():
 
