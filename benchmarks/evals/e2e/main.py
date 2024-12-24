@@ -318,7 +318,8 @@ class EvalEngine:
         elif "raas" in self.configs.approach:
             from quest.utils.cache_utils import RaaSCache
 
-            past_key_values = RaaSCache()
+            cache_budget = int(self.configs.approach.split("-")[-1])
+            past_key_values = RaaSCache(page_size=16, cache_budget=cache_budget)
 
         with torch.no_grad():
 

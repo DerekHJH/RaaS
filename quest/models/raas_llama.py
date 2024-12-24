@@ -180,8 +180,8 @@ def forward(
         )
 
     # We do not accept external attention mask for RaaS Attention, we prepare the mask_bottom here
-    assert attention_mask is None, "External attention mask is not supported for RaaS Attention"
-    attention_mask = past_key_value.get_attention_mask()
+    # assert attention_mask is None, "External attention mask is not supported for RaaS Attention"
+    # attention_mask = past_key_value.get_attention_mask(attn_weights.size())
 
     if attention_mask is not None:
         if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):

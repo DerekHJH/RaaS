@@ -3,6 +3,7 @@ import json
 import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
+from collections import OrderedDict
 
 import torch
 
@@ -590,24 +591,50 @@ class RaaSCache(DynamicCache):
         super().__init__(num_hidden_layers)
         self.page_size = page_size
         self.cache_budget = cache_budget
-        self.cached_prefill_pages = []
-        self.cached_decode_pages = []
+        self.prefill_decode_page_delimiter = 0
+        self.cached_decode_pages = OrderedDict()
 
-    def get_attention_mask(self, page_size: int):
+    def get_attention_mask(self, attention_mask_shape: Tuple[int, int, int, int]) -> torch.Tensor:
         """
         Return the attention mask which masks outdated cache.
-        """
 
+        Args: 
+            attention_mask_shape (:obj:`Tuple[int, int, int, int]`): The shape of the attention mask tensor.
+            bzs, num_heads, q_len, seq_len = attention_mask_shape
+        """
         # Before prefill, we do not mask any page
-        if not self.cached_prefill_pages:
+        if self.prefill_decode_page_delimiter == 0:
             return None
+
+        bzs, num_heads, q_len, seq_len = attention_mask_shape
+        attention_mask = torch.zeros(bzs, num_heads, q_len, seq_len, device=self.key_cache[0].device)
+        for page_id in self.cached_decode_pages.keys():
+            page_start = page_id * self.page_size
+            page_end = (page_id + 1) * self.page_size
+            attention_mask[..., :page_start] = torch.tensor(torch.finfo(self.key_cache[0].dtype).min)
+
+
     
         
 
 
     
-    def update_access_history(accessed_pages: List[int]):
+    def update_access_history(self, accessed_pages: List[int]):
         """
         Update the access history of the cache.
+
+        Args:
+            accessed_pages (:obj:`List[int]`): The list of page ids that are accessed in the current forward pass.
         """
-        pass
+        if self.prefill_decode_page_delimiter == 0:
+            self.prefill_decode_page_delimiter = len(accessed_pages)
+        else:
+            for page_id in accessed_pages:
+                if page_id in self.cached_decode_pages:
+                    self.cached_decode_pages.move_to_end(page_id)
+                else:
+                    self.cached_decode_pages[page_id] = None
+
+
+
+        

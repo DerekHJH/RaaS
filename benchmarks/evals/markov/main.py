@@ -14,14 +14,14 @@ from tqdm.contrib import tenumerate
 from transformers import Pipeline
 
 from benchmarks.data_sets.data_set import Data_set
-from benchmarks.evals.eval_engine import Configs, EvalEngine
+from benchmarks.evals.e2e.main import EvalConfigs, EvalEngine
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class MarkovConfigs(Configs):
+class MarkovConfigs(EvalConfigs):
     # Overriding the default values of the parent class.
     tot_num_data: int = 1
     all_datasets: List[str] = field(default_factory=lambda: ["math500"])  # Fixed mutable default
@@ -109,6 +109,9 @@ class MarkovEvalEngine(EvalEngine):
                 attention = torch.cat(attention, dim=0).cpu().float()  # shape (seq_len, seq_len)
 
                 # Scale the attention score For better visibility
+                import pdb
+
+                pdb.set_trace()
                 attention = attention > 0.05
                 Sum = attention.sum(dim=0, keepdim=True)
                 Sum[0, 0:10] = 0  # Avoid sink tokens to dominate
@@ -128,4 +131,3 @@ if __name__ == "__main__":
     configs = MarkovConfigs.get_configs_from_cli_args()
     eval_engine = MarkovEvalEngine(configs)
     eval_engine.run()
-    eval_engine.generate_presentation()
