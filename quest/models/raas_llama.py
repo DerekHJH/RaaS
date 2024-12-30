@@ -44,9 +44,12 @@ def local_heavy_hitter_mask(attn_weights, cache_budget, page_size):
         page_size,
     ).amax(dim=-1)
 
-    _, topk = chunk_attn_weights.topk(
+    topk_score, topk = chunk_attn_weights.topk(
         k=min(max(3, cache_budget // page_size), chunk_attn_weights.size(-1)), dim=-1
     )
+    access_page_ids = topk.clone()
+    access_page_scores = topk_score.clone()
+
     # repeat topk page_size times and recover the original indexes (* page_size + arange(page_size))
     topk = topk.unsqueeze(-1).repeat(1, 1, 1, 1, page_size) * page_size + torch.arange(
         page_size, device=topk.device
@@ -58,7 +61,7 @@ def local_heavy_hitter_mask(attn_weights, cache_budget, page_size):
     # remove the padding
     mask_bottom = mask_bottom[:, :, :, :seq_length]
 
-    return mask_bottom
+    return mask_bottom, access_page_ids, access_page_scores
 
 
 def forward(
@@ -90,10 +93,6 @@ def forward(
             position_embeddings,
             **kwargs,
         )
-
-    import pdb
-
-    pdb.set_trace()
 
     query_states = self.q_proj(hidden_states)
     key_states = self.k_proj(hidden_states)
@@ -180,8 +179,8 @@ def forward(
         )
 
     # We do not accept external attention mask for RaaS Attention, we prepare the mask_bottom here
-    # assert attention_mask is None, "External attention mask is not supported for RaaS Attention"
-    # attention_mask = past_key_value.get_attention_mask(attn_weights.size())
+    assert attention_mask is None, "External attention mask is not supported for RaaS Attention"
+    attention_mask = past_key_value.get_attention_mask(attn_weights.size())
 
     if attention_mask is not None:
         if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
@@ -200,12 +199,13 @@ def forward(
     attn_weights_for_selection = quantized_weight
 
     if cache_budget > 0:
-        mask_bottom = local_heavy_hitter_mask(
+        mask_bottom, access_page_ids, access_page_scores = local_heavy_hitter_mask(
             attn_weights_for_selection, cache_budget, self.page_size
         )  # Default: No padding applied to input
+        past_key_value.update_access_history(access_page_ids, access_page_scores)  # hjh
+
     else:
         mask_bottom = torch.zeros_like(attn_weights_for_selection, dtype=torch.bool)
-
     mask_bottom = torch.tril(mask_bottom, diagonal=position_ids[0][0].item())
     attn_weights[~mask_bottom] = torch.tensor(torch.finfo(attn_weights.dtype).min)
 
