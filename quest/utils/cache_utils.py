@@ -31,8 +31,9 @@ class RaaSCache(DynamicCache):
             torch.tensor of shape (batch_size, num_heads, q_len, seq_len)
             The attention mask which masks outdated cache.
         """
-        # Before prefill, we do not mask any page
-        if self.counter == 0:
+
+        # The first decode
+        if len(self.page_id_to_access_status) <= layer_idx:
             return None
 
         bzs, num_heads, q_len, seq_len = attn_weights.shape
@@ -42,7 +43,7 @@ class RaaSCache(DynamicCache):
             self.page_size, device=topk.device
         )
         topk = topk.reshape(topk.shape[0], topk.shape[1], topk.shape[2], -1)
-        attention_mask[topk] = 0  
+        attention_mask.scatter_(-1, topk, 0)  
         return attention_mask
 
     
@@ -63,19 +64,25 @@ class RaaSCache(DynamicCache):
         assert access_page_ids.shape[0] == 1 and access_page_ids.shape[2] == 1, "We only support 1 batch size and 1 q for now."
         assert access_page_scores.shape[0] == 1 and access_page_scores.shape[2] == 1, "We only support 1 batch size and 1 q for now."
 
-        if self.counter == 0:
-            self.page_id_to_access_status = [torch.zeros(
+        # The first decode
+        if len(self.page_id_to_access_status) <= layer_idx:
+            # There may be skipped layers, fill them with empty lists
+            # For example, Quest skips the first 2 layers
+            for _ in range(len(self.page_id_to_access_status), layer_idx):
+                self.key_cache.append([])
+                self.value_cache.append([])
+            self.page_id_to_access_status.append(torch.zeros(
                 access_page_ids.shape[0], # batch_size 1
                 access_page_ids.shape[1], # num_heads
                 access_page_ids.shape[2], # q_len 1
                 self.max_num_pages, # num_pages
                 device=access_page_ids.device
-            ) for _ in range(len(self.key_cache))]
+            ))
             
 
-        self.counter += 1
-        # Only the top-k/2 is deemed as accessed as important pages
-        self.page_id_to_access_status[layer_idx][access_page_ids[..., :self.page_budget // 2]] = self.counter
+        self.counter = self.get_seq_length() # Motonically increasing counter
+        # Only the top-(k/2) is deemed as accessed as important pages
+        self.page_id_to_access_status[layer_idx].scatter_(-1, access_page_ids[..., :self.page_budget // 2], self.counter)
 
 
 

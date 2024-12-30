@@ -81,7 +81,7 @@ def forward(
 
     bsz, q_len, _ = hidden_states.size()
 
-    if q_len > 1 or self.layer_idx < 2:
+    if q_len > 1:  # RaaS apply sparsity to all layers
         return self.flash_forward(
             hidden_states,
             attention_mask,
@@ -183,10 +183,16 @@ def forward(
     attention_mask = past_key_value.get_attention_mask(attn_weights, self.layer_idx)
 
     if attention_mask is not None:
-        if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
-            raise ValueError(
-                f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
-            )
+        # The following assertion is to make sure all heads share the same attention mask
+        # But quest and raas allow different attention masks for different heads
+        # if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
+        #     raise ValueError(
+        #         f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
+        #     )
+        # Therefore, we remove the preceding assertion and add the following assertion
+        assert (
+            attention_mask.shape == attn_weights.shape
+        ), "Attention mask should have the same shape as attn_weights"
         attn_weights = attn_weights + attention_mask
         attn_weights = torch.max(attn_weights, torch.tensor(torch.finfo(attn_weights.dtype).min))
         quantized_weight = quantized_weight + attention_mask
@@ -202,7 +208,9 @@ def forward(
         mask_bottom, access_page_ids, access_page_scores = local_heavy_hitter_mask(
             attn_weights_for_selection, cache_budget, self.page_size
         )  # Default: No padding applied to input
-        past_key_value.update_access_history(access_page_ids, access_page_scores)  # hjh
+        past_key_value.update_access_history(
+            access_page_ids, access_page_scores, self.layer_idx
+        )  # hjh
 
     else:
         mask_bottom = torch.zeros_like(attn_weights_for_selection, dtype=torch.bool)
