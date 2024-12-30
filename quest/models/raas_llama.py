@@ -190,9 +190,9 @@ def forward(
         #         f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
         #     )
         # Therefore, we remove the preceding assertion and add the following assertion
-        import pdb
+        # import pdb
 
-        pdb.set_trace()
+        # pdb.set_trace()
         assert (
             attention_mask.shape == attn_weights.shape
         ), "Attention mask should have the same shape as attn_weights"

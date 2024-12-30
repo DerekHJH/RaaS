@@ -43,15 +43,16 @@ class RaaSCache(DynamicCache):
         if self._seen_tokens <= self.cache_budget:
             return None
 
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         bzs, num_heads, q_len, seq_len = attn_weights.shape
-        attention_mask = torch.ones(bzs, num_heads, q_len, (seq_len + self.page_size - 1) // self.page_size * self.page_size), device=self.key_cache[0].device) * torch.tensor(torch.finfo(self.key_cache[0].dtype).min)
+        attention_mask = torch.ones(bzs, num_heads, q_len, (seq_len + self.page_size - 1) // self.page_size * self.page_size, device=self.key_cache[0].device) * torch.tensor(torch.finfo(self.key_cache[0].dtype).min)
         _, topk = self.page_id_to_access_status[layer_idx].topk(self.page_budget, dim=-1)
         topk = topk.unsqueeze(-1).repeat(1, 1, 1, 1, self.page_size) * self.page_size + torch.arange(
             self.page_size, device=topk.device
         )
         topk = topk.reshape(topk.shape[0], topk.shape[1], topk.shape[2], -1)
         attention_mask.scatter_(-1, topk, 0)  
+        attention_mask[..., -self.page_size:] = 0 # Novice protection for the last page
         return attention_mask[..., :seq_len]
 
     
