@@ -1,13 +1,17 @@
 import logging
 from typing import List, Optional, Tuple
 import torch
-
+import math
 from transformers import DynamicCache
 
 logger = logging.getLogger(__name__)
 
     
 class RaaSCache(DynamicCache):
+
+    """
+    The following implementation assumes that the cache is not full at the beginning of the decoding process.
+    """
 
     def __init__(self, page_size: int, cache_budget: int, num_hidden_layers: Optional[int] = None) -> None:
         super().__init__(num_hidden_layers)
@@ -32,19 +36,23 @@ class RaaSCache(DynamicCache):
             The attention mask which masks outdated cache.
         """
 
-        # The first decode
+        # The first decode. We do not use attetion map in prefill stage and the first decode
         if len(self.page_id_to_access_status) <= layer_idx:
             return None
+        # We do not use attetion map if the cache is not full
+        if self._seen_tokens <= self.cache_budget:
+            return None
 
+        import pdb; pdb.set_trace()
         bzs, num_heads, q_len, seq_len = attn_weights.shape
-        attention_mask = torch.ones(bzs, num_heads, q_len, seq_len, device=self.key_cache[0].device) * torch.tensor(torch.finfo(self.key_cache[0].dtype).min)
+        attention_mask = torch.ones(bzs, num_heads, q_len, (seq_len + self.page_size - 1) // self.page_size * self.page_size), device=self.key_cache[0].device) * torch.tensor(torch.finfo(self.key_cache[0].dtype).min)
         _, topk = self.page_id_to_access_status[layer_idx].topk(self.page_budget, dim=-1)
         topk = topk.unsqueeze(-1).repeat(1, 1, 1, 1, self.page_size) * self.page_size + torch.arange(
             self.page_size, device=topk.device
         )
         topk = topk.reshape(topk.shape[0], topk.shape[1], topk.shape[2], -1)
         attention_mask.scatter_(-1, topk, 0)  
-        return attention_mask
+        return attention_mask[..., :seq_len]
 
     
     def update_access_history(self, access_page_ids, access_page_scores, layer_idx: int):
@@ -80,7 +88,7 @@ class RaaSCache(DynamicCache):
             ))
             
 
-        self.counter = self.get_seq_length() # Motonically increasing counter
+        self.counter = self._seen_tokens # Motonically increasing counter
         # Only the top-(k/2) is deemed as accessed as important pages
         self.page_id_to_access_status[layer_idx].scatter_(-1, access_page_ids[..., :self.page_budget // 2], self.counter)
 
