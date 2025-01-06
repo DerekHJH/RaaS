@@ -214,7 +214,6 @@ def forward(
         past_key_value.update_access_history(
             access_page_ids, access_page_scores, self.layer_idx
         )  # hjh
-
     else:
         mask_bottom = torch.zeros_like(attn_weights_for_selection, dtype=torch.bool)
     mask_bottom = torch.tril(mask_bottom, diagonal=position_ids[0][0].item())

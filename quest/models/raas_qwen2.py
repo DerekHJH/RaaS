@@ -44,9 +44,12 @@ def local_heavy_hitter_mask(attn_weights, cache_budget, page_size):
         page_size,
     ).amax(dim=-1)
 
-    _, topk = chunk_attn_weights.topk(
+    topk_score, topk = chunk_attn_weights.topk(
         k=min(max(3, cache_budget // page_size), chunk_attn_weights.size(-1)), dim=-1
     )
+    access_page_ids = topk.clone()
+    access_page_scores = topk_score.clone()
+
     # repeat topk page_size times and recover the original indexes (* page_size + arange(page_size))
     topk = topk.unsqueeze(-1).repeat(1, 1, 1, 1, page_size) * page_size + torch.arange(
         page_size, device=topk.device
@@ -58,7 +61,7 @@ def local_heavy_hitter_mask(attn_weights, cache_budget, page_size):
     # remove the padding
     mask_bottom = mask_bottom[:, :, :, :seq_length]
 
-    return mask_bottom
+    return mask_bottom, access_page_ids, access_page_scores
 
 
 def forward(
@@ -78,7 +81,7 @@ def forward(
 
     bsz, q_len, _ = hidden_states.size()
 
-    if q_len > 1 or self.layer_idx < 2:
+    if q_len > 1:  # RaaS apply sparsity to all layers
         return self.flash_forward(
             hidden_states,
             attention_mask,
@@ -175,11 +178,24 @@ def forward(
             f" {attn_weights.size()}"
         )
 
+    # We do not accept external attention mask for RaaS Attention, we prepare the mask_bottom here
+    assert attention_mask is None, "External attention mask is not supported for RaaS Attention"
+    attention_mask = past_key_value.get_attention_mask(attn_weights, self.layer_idx)
+
     if attention_mask is not None:
-        if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
-            raise ValueError(
-                f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
-            )
+        # The following assertion is to make sure all heads share the same attention mask
+        # But quest and raas allow different attention masks for different heads
+        # if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
+        #     raise ValueError(
+        #         f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
+        #     )
+        # Therefore, we remove the preceding assertion and add the following assertion
+        # import pdb
+
+        # pdb.set_trace()
+        assert (
+            attention_mask.shape == attn_weights.shape
+        ), "Attention mask should have the same shape as attn_weights"
         attn_weights = attn_weights + attention_mask
         attn_weights = torch.max(attn_weights, torch.tensor(torch.finfo(attn_weights.dtype).min))
         quantized_weight = quantized_weight + attention_mask
@@ -192,12 +208,14 @@ def forward(
     attn_weights_for_selection = quantized_weight
 
     if cache_budget > 0:
-        mask_bottom = local_heavy_hitter_mask(
+        mask_bottom, access_page_ids, access_page_scores = local_heavy_hitter_mask(
             attn_weights_for_selection, cache_budget, self.page_size
         )  # Default: No padding applied to input
+        past_key_value.update_access_history(
+            access_page_ids, access_page_scores, self.layer_idx
+        )  # hjh
     else:
         mask_bottom = torch.zeros_like(attn_weights_for_selection, dtype=torch.bool)
-
     mask_bottom = torch.tril(mask_bottom, diagonal=position_ids[0][0].item())
     attn_weights[~mask_bottom] = torch.tensor(torch.finfo(attn_weights.dtype).min)
 

@@ -30,7 +30,8 @@ dependencies = [
     "pytest==8.3.4",
     "word2number",
     "latex2sympy2",
-    "python-Levenshtein"
+    "python-Levenshtein",
+    "distinctipy"
 ]
 
 [tool.setuptools.packages.find]

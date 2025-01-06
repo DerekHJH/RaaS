@@ -45,7 +45,7 @@ if __name__ == "__main__":
             # Plot
 
     plt.savefig(
-        os.path.join(configs.result_path, f"attention_score_distribution"),
+        os.path.join(configs.result_path, f"attention_score_boxplot"),
         dpi=100,
         bbox_inches="tight",
     )

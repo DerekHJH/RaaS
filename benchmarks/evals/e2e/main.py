@@ -240,7 +240,7 @@ class EvalEngine:
                     },
                 )
             elif "raas" in approach_name:
-                from quest.models.full_qwen2 import LlamaForCausalLM
+                from quest.models.full_qwen2 import Qwen2ForCausalLM
                 from quest.models.raas_qwen2 import enable_raas_attention_eval
 
                 model = Qwen2ForCausalLM.from_pretrained(

@@ -24,15 +24,21 @@ all_approaches = [
     "quest-256",
     "quest-512",
     "quest-1024",
+    "raas-64",
+    "raas-128",
+    "raas-256",
+    "raas-512",
+    "raas-1024",
     "full",
 ]
 colors = (
     ["#FFCC99", "#FFB366", "#FF9933", "#FF8000", "#CC6600"]
     + ["#A3C1E0", "#7FB3D5", "#4DA6D6", "#2A9BD5", "#0076A8"]
+    + ["#FFCCCC", "#FF9999", "#FF6666", "#FF3333", "#CC0000"]
     # + ["#FF3333"]
     + ["#33CC33"]
 )
-markers = ["s"] * 5 + ["*"] * 5 + ["o"] * 1
+markers = ["s"] * 5 + ["o"] * 5 + ["*"] * 5 + ["^"] * 1
 
 x_metric_name = "num_decode"  # ["num_decode", "TTFT", "JCT", "TPOT"]
 y_metric_name = "accuracy"

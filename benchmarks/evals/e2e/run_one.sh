@@ -1,7 +1,8 @@
 
-dataset="aime"
-model="AIDC-AI/Marco-o1"
-all_approaches=("full" "sink-64" "sink-128" "sink-256" "sink-512" "sink-1024" "quest-64" "quest-128" "quest-256" "quest-512" "quest-1024")
+dataset="math500"
+model="Qwen/Qwen2.5-Math-7B-Instruct"
+# all_approaches=("full" "sink-64" "sink-128" "sink-256" "sink-512" "sink-1024" "quest-64" "quest-128" "quest-256" "quest-512" "quest-1024")
+all_approaches=("raas-64" "raas-128" "raas-256" "raas-512" "raas-1024")
 
 # Take the arguments from the command line
 if [ $# -eq 0 ]; then
@@ -22,4 +23,3 @@ for approach in ${all_approaches[@]}; do
     echo "Running command: ${command}"
     ${command}
 done
-
