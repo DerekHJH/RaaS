@@ -85,7 +85,6 @@ class EvalConfigs:
         # Parse the arguments.
         args = parser.parse_args()
         configs = cls(**vars(args))
-        configs.model_config = AutoConfig.from_pretrained(configs.model)
         return configs
 
     def __post_init__(self):
@@ -95,6 +94,8 @@ class EvalConfigs:
         self._verify_init_args()
         self.result_path = os.path.join(self.result_path, self.dataset, self.model.split("/")[-1])
         os.makedirs(self.result_path, exist_ok=True)
+
+        self.model_config = AutoConfig.from_pretrained(self.model)
 
     def _verify_init_args(self):
         assert self.model in self.all_models, f"{self.model} not in {self.all_models}"

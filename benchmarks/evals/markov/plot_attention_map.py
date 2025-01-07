@@ -11,7 +11,9 @@ from benchmarks.evals.markov.main import MarkovConfigs
 
 logger = logging.getLogger(__name__)
 
-configs = MarkovConfigs(dataset="math500", model="peiyi9979/mistral-7b-sft", approach="full")
+configs = MarkovConfigs(dataset="math500", model="Qwen/Qwen2.5-Math-7B-Instruct", approach="full")
+tot_layer_ids = list(range(configs.model_config.num_hidden_layers))
+tot_head_ids = list(range(configs.model_config.num_attention_heads))
 cache_budget = 128
 page_size = 16
 
@@ -85,7 +87,7 @@ def get_h2o_attention(attention: torch.Tensor) -> torch.Tensor:
         attention[i, cum_attn_score[i, :] == 2] = 0
         assert (
             attention[i, :] != 0
-        ).sum() == cache_budget, "Attention has more than cache_budget non-zero elements"
+        ).sum() <= cache_budget, "Attention has more than cache_budget non-zero elements"
 
         row_sum = attention[i].sum()
         attention[i] /= row_sum
@@ -179,9 +181,6 @@ def square_attention(attentions: torch.Tensor, layer_id, head_id) -> torch.Tenso
     """
     # A list (of length seq_len) torch.Tensor,
     # each with shape (num_attend_tokens, num_attended_tokens)
-    import pdb
-
-    pdb.set_trace()
     attention = [attentions[i][layer_id][0, head_id, :, :] for i in range(len(attentions))]
     """
     assert attention[0].shape == (num_prefill_tokens, num_prefill_tokens)
@@ -206,34 +205,34 @@ if __name__ == "__main__":
         os.path.join(configs.result_path, "attentions.pt")
     )
 
-    for layer_id in configs.layer_ids:
-        for head_id in configs.head_ids:
+    for layer_id in tot_layer_ids:
+        for head_id in tot_head_ids:
 
-            logger.info(f"Plotting attention map for layer {layer_id}, head {head_id}")
+            logger.info(f"Processing layer {layer_id}, head {head_id}")
 
             attention = square_attention(attentions, layer_id, head_id)
 
             # Scale the attention score For better visibility
 
             # Plot
-            fig, axs = plt.subplots(1, 5, figsize=(20, 4))
+            fig, axs = plt.subplots(1, 2, figsize=(16, 4))
             red_black_cmap = LinearSegmentedColormap.from_list("RedBlack", ["black", "red"])
 
-            sns.heatmap(attention, cmap=red_black_cmap, ax=axs[0], cbar=False)
-            sns.heatmap(get_sink_attention(attention), cmap=red_black_cmap, ax=axs[1], cbar=False)
-            sns.heatmap(get_h2o_attention(attention), cmap=red_black_cmap, ax=axs[2], cbar=False)
-            sns.heatmap(get_quest_attention(attention), cmap=red_black_cmap, ax=axs[3], cbar=False)
-            sns.heatmap(get_raas_attention(attention), cmap=red_black_cmap, ax=axs[4], cbar=False)
+            sns.heatmap(attention, cmap="viridis", ax=axs[0], cbar=False)
+            sns.heatmap(get_sink_attention(attention), cmap="viridis", ax=axs[1], cbar=False)
+            # sns.heatmap(get_h2o_attention(attention), cmap="viridis", ax=axs[2], cbar=False)
+            # sns.heatmap(get_quest_attention(attention), cmap="viridis", ax=axs[3], cbar=False)
+            # sns.heatmap(get_raas_attention(attention), cmap="viridis", ax=axs[4], cbar=False)
 
             axs[0].set_title("full")
             axs[1].set_title("sink")
-            axs[2].set_title("h2o")
-            axs[3].set_title("quest")
-            axs[4].set_title("raas")
+            # axs[2].set_title("h2o")
+            # axs[3].set_title("quest")
+            # axs[4].set_title("raas")
 
             plt.savefig(
                 os.path.join(configs.result_path, f"layer_{layer_id}_head_{head_id}.png"),
-                dpi=600,
+                dpi=200,
                 bbox_inches="tight",
             )
             plt.close()

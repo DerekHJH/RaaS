@@ -26,11 +26,6 @@ class MarkovConfigs(EvalConfigs):
     tot_num_data: int = 1
     all_approaches: List[str] = field(default_factory=lambda: ["full"])
 
-    # There are too many layers and heads, we construct the attention maps for
-    # a limited number of layers and heads as configured in the `configs`.
-    layer_ids: List[int] = field(default_factory=lambda: list(range(32)))
-    head_ids: List[int] = field(default_factory=lambda: list(range(32)))
-
 
 class MarkovEvalEngine(EvalEngine):
 

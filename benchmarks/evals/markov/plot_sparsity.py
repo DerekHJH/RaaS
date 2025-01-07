@@ -12,16 +12,16 @@ from benchmarks.evals.markov.plot_attention_map import square_attention
 logger = logging.getLogger(__name__)
 
 configs = MarkovConfigs(dataset="math500", model="Qwen/Qwen2.5-Math-7B-Instruct", approach="full")
-configs.layer_ids = list(range(configs.model_config.num_hidden_layers))
-configs.head_ids = list(range(configs.model_config.num_attention_heads))
+tot_layer_ids = list(range(configs.model_config.num_hidden_layers))
+tot_head_ids = list(range(configs.model_config.num_attention_heads))
 cache_budget = 128
 page_size = 16
 
 # important (layer_id, head_id):
 # backslash (7, 18), hard to solve
 # Waterfall (6, 15), (30, 27), (9, 5)
-# configs.layer_ids = [7, 6]
-# configs.head_ids = [18, 15]
+# tot_layer_ids = [7, 6]
+# tot_head_ids = [18, 15]
 
 
 if __name__ == "__main__":
@@ -31,13 +31,13 @@ if __name__ == "__main__":
     )
 
     fig, axs = plt.subplots(
-        len(configs.layer_ids),
-        len(configs.head_ids),
-        figsize=(5 * len(configs.head_ids), 4 * len(configs.layer_ids)),
+        len(tot_layer_ids),
+        len(tot_head_ids),
+        figsize=(5 * len(tot_head_ids), 4 * len(tot_layer_ids)),
     )
 
-    for x, layer_id in enumerate(configs.layer_ids):
-        for y, head_id in enumerate(configs.head_ids):
+    for x, layer_id in enumerate(tot_layer_ids):
+        for y, head_id in enumerate(tot_head_ids):
             ax = axs[x, y]
             data = []
             logger.info(f"Processing layer {layer_id}, head {head_id}")
