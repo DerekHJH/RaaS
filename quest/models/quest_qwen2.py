@@ -1,15 +1,16 @@
-import math
-from typing import Optional, Tuple, Union
-import torch
-from torch import nn
-import torch.utils.checkpoint
 import logging
+import math
 import types
-from .full_qwen2 import (
+from typing import Optional, Tuple, Union
+
+import torch
+import torch.utils.checkpoint
+from torch import nn
+from transformers.models.qwen2.modeling_qwen2 import (
+    Cache,
     Qwen2Attention,
     apply_rotary_pos_emb,
     repeat_kv,
-    Cache
 )
 
 logger = logging.getLogger(__name__)
@@ -51,9 +52,9 @@ def local_heavy_hitter_mask(attn_weights, cache_budget, page_size):
         k=min(max(3, cache_budget // page_size), chunk_attn_weights.size(-1)), dim=-1
     )
     # repeat topk page_size times and recover the original indexes (* page_size + arange(page_size))
-    topk = topk.unsqueeze(-1).repeat(
-        1, 1, 1, 1, page_size
-    ) * page_size + torch.arange(page_size, device=topk.device)
+    topk = topk.unsqueeze(-1).repeat(1, 1, 1, 1, page_size) * page_size + torch.arange(
+        page_size, device=topk.device
+    )
     topk = topk.reshape(topk.shape[0], topk.shape[1], topk.shape[2], -1)
     mask_bottom = torch.zeros_like(attn_weights, dtype=torch.bool)
     mask_bottom.scatter_(-1, topk, True)
@@ -66,17 +67,19 @@ def local_heavy_hitter_mask(attn_weights, cache_budget, page_size):
 
 def forward(
     self,
-        hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[Cache] = None,
-        output_attentions: bool = False,
-        use_cache: bool = False,
-        cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # will become mandatory in v4.46
-        **kwargs,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
-    
+    hidden_states: torch.Tensor,
+    attention_mask: Optional[torch.Tensor] = None,
+    position_ids: Optional[torch.LongTensor] = None,
+    past_key_value: Optional[Cache] = None,
+    output_attentions: bool = False,
+    use_cache: bool = False,
+    cache_position: Optional[torch.LongTensor] = None,
+    position_embeddings: Optional[
+        Tuple[torch.Tensor, torch.Tensor]
+    ] = None,  # will become mandatory in v4.46
+    **kwargs,
+) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
+
     bsz, q_len, _ = hidden_states.size()
 
     if q_len > 1 or self.layer_idx < 2:
@@ -91,7 +94,7 @@ def forward(
             position_embeddings,
             **kwargs,
         )
-    
+
     query_states = self.q_proj(hidden_states)
     key_states = self.k_proj(hidden_states)
     value_states = self.v_proj(hidden_states)
@@ -100,7 +103,7 @@ def forward(
     query_states = query_states.view(bsz, q_len, -1, self.head_dim).transpose(1, 2)
     key_states = key_states.view(bsz, q_len, -1, self.head_dim).transpose(1, 2)
     value_states = value_states.view(bsz, q_len, -1, self.head_dim).transpose(1, 2)
-        
+
     if position_embeddings is None:
         logger.warning_once(
             "The attention layers in this model are transitioning from computing the RoPE embeddings internally "
@@ -116,15 +119,14 @@ def forward(
     if past_key_value is not None:
         # sin and cos are specific to RoPE models; cache_position needed for the static cache
         cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
-        key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+        key_states, value_states = past_key_value.update(
+            key_states, value_states, self.layer_idx, cache_kwargs
+        )
 
     key_states = repeat_kv(key_states, self.num_key_value_groups)
     value_states = repeat_kv(value_states, self.num_key_value_groups)
 
-    attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(
-        self.head_dim
-    )
-
+    attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
 
     ############################
     # Start of Quest Attention #
@@ -171,7 +173,7 @@ def forward(
 
     kv_seq_len = past_key_value.get_seq_length()
 
-    if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len): # Do not support TP
+    if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):  # Do not support TP
         raise ValueError(
             f"Attention weights should be of size {(bsz, self.num_heads, q_len, kv_seq_len)}, but is"
             f" {attn_weights.size()}"
@@ -183,9 +185,7 @@ def forward(
                 f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
             )
         attn_weights = attn_weights + attention_mask
-        attn_weights = torch.max(
-            attn_weights, torch.tensor(torch.finfo(attn_weights.dtype).min)
-        )
+        attn_weights = torch.max(attn_weights, torch.tensor(torch.finfo(attn_weights.dtype).min))
         quantized_weight = quantized_weight + attention_mask
         quantized_weight = torch.max(
             quantized_weight, torch.tensor(torch.finfo(quantized_weight.dtype).min)
@@ -229,6 +229,7 @@ def forward(
 
     return attn_output, attn_weights, past_key_value
 
+
 def enable_quest_attention_eval(model, args):
     for name, module in reversed(model._modules.items()):
         if len(list(module.children())) > 0:
@@ -237,10 +238,8 @@ def enable_quest_attention_eval(model, args):
                 args,
             )
 
-        if isinstance(module, (Qwen2Attention, )):
+        if isinstance(module, (Qwen2Attention,)):
             model._modules[name].flash_forward = model._modules[name].forward
-            model._modules[name].forward = types.MethodType(
-                forward, model._modules[name]
-            )
+            model._modules[name].forward = types.MethodType(forward, model._modules[name])
             model._modules[name].cache_budget = args["cache_budget"]
             model._modules[name].page_size = args["page_size"]

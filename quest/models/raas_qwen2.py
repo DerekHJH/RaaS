@@ -6,8 +6,12 @@ from typing import Optional, Tuple, Union
 import torch
 import torch.utils.checkpoint
 from torch import nn
-
-from .full_qwen2 import Cache, Qwen2Attention, apply_rotary_pos_emb, repeat_kv
+from transformers.models.qwen2.modeling_qwen2 import (
+    Cache,
+    Qwen2Attention,
+    apply_rotary_pos_emb,
+    repeat_kv,
+)
 
 logger = logging.getLogger(__name__)
 

@@ -6,8 +6,12 @@ from typing import Optional, Tuple, Union
 import torch
 import torch.utils.checkpoint
 from torch import nn
-
-from .full_llama import Cache, LlamaAttention, apply_rotary_pos_emb, repeat_kv
+from transformers.models.llama.modeling_llama import (
+    Cache,
+    LlamaAttention,
+    apply_rotary_pos_emb,
+    repeat_kv,
+)
 
 logger = logging.getLogger(__name__)
 
