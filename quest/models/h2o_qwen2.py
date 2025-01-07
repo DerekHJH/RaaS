@@ -6,9 +6,9 @@ from typing import Optional, Tuple, Union
 import torch
 import torch.utils.checkpoint
 from torch import nn
-from transformers.models.llama.modeling_llama import (
+from transformers.models.qwen2.modeling_qwen2 import (
     Cache,
-    LlamaAttention,
+    Qwen2Attention,
     apply_rotary_pos_emb,
     repeat_kv,
 )
@@ -139,7 +139,7 @@ def enable_h2o_attention_eval(model, args):
                 args,
             )
 
-        if isinstance(module, (LlamaAttention,)):
+        if isinstance(module, (Qwen2Attention,)):
             model._modules[name].flash_forward = model._modules[name].forward
             model._modules[name].forward = types.MethodType(forward, model._modules[name])
             model._modules[name].cache_budget = args["cache_budget"]

@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 class MarkovConfigs(EvalConfigs):
     # Overriding the default values of the parent class.
     tot_num_data: int = 1
-    all_approaches: List[str] = field(default_factory=lambda: ["full"])
 
 
 class MarkovEvalEngine(EvalEngine):
@@ -40,7 +39,10 @@ class MarkovEvalEngine(EvalEngine):
 
         dataset.update(results)
         dataset.save_dataset(self.configs.result_path)
-        torch.save(attentions, os.path.join(self.configs.result_path, "attentions.pt"))
+        torch.save(
+            attentions,
+            os.path.join(self.configs.result_path, f"{self.configs.approach}_attentions.pt"),
+        )
 
         return dataset
 
