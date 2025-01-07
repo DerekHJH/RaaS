@@ -52,6 +52,11 @@ class EvalConfigs:
             "sink-256",
             "sink-512",
             "sink-1024",
+            "h2o-84",
+            "h2o-128",
+            "h2o-256",
+            "h2o-512",
+            "h2o-1024",
             "quest-64",
             "quest-128",
             "quest-256",
@@ -185,6 +190,18 @@ class EvalEngine:
                     device_map="cuda:0",
                     trust_remote_code=True,
                 )
+            elif "h2o" in approach_name:
+                from quest.models.h2o_llama import enable_h2o_attention_eval
+
+                model = LlamaForCausalLM.from_pretrained(
+                    model_name,
+                    device_map="cuda:0",
+                    trust_remote_code=True,
+                )
+                enable_h2o_attention_eval(
+                    model,
+                    {"cache_budget": int(approach_name.split("-")[-1])},
+                )
             elif "quest" in approach_name:
                 from quest.models.quest_llama import enable_quest_attention_eval
 
@@ -223,6 +240,18 @@ class EvalEngine:
                     model_name,
                     device_map="cuda:0",
                     trust_remote_code=True,
+                )
+            elif "h2o" in approach_name:
+                from quest.models.h2o_qwen2 import enable_h2o_attention_eval
+
+                model = Qwen2ForCausalLM.from_pretrained(
+                    model_name,
+                    device_map="cuda:0",
+                    trust_remote_code=True,
+                )
+                enable_h2o_attention_eval(
+                    model,
+                    {"cache_budget": int(approach_name.split("-")[-1])},
                 )
             elif "quest" in approach_name:
                 from quest.models.quest_qwen2 import enable_quest_attention_eval
@@ -311,6 +340,11 @@ class EvalEngine:
         elif "sink" in self.configs.approach:
             cache_budget = int(self.configs.approach.split("-")[-1])
             past_key_values = SinkCache(window_length=cache_budget, num_sink_tokens=4)
+        elif "h2o" in self.configs.approach:
+            from quest.utils.cache_utils import H2OCache
+
+            cache_budget = int(self.configs.approach.split("-")[-1])
+            past_key_values = H2OCache(cache_budget=cache_budget)
         elif "quest" in self.configs.approach:
             # Modifications happen on the model loading stage instead of here
             past_key_values = DynamicCache()  #  quest attention will not discard any cache
