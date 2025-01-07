@@ -27,6 +27,7 @@ str2class = {
 model_names_map = {
     "peiyi9979/mistral-7b-sft": "Mistral 7B SFT",
     "Qwen/Qwen2.5-Math-7B-Instruct": "Qwen 2.5 Math 7B Instruct",
+    "AIDC-AI/Marco-o1": "Marco o1",
 }
 dataset_names_map = {
     "math500": "MATH500",

@@ -81,7 +81,7 @@ def forward(
 
     bsz, q_len, _ = hidden_states.size()
 
-    if q_len > 1:  # RaaS apply sparsity to all layers
+    if q_len > 1 or self.layer_idx < 2:
         return self.flash_forward(
             hidden_states,
             attention_mask,
