@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Tuple
 
-import distinctipy
+# import distinctipy
 import seaborn as sns
 import torch
 from matplotlib import pyplot as plt
@@ -11,7 +11,24 @@ from benchmarks.evals.markov.main import MarkovConfigs
 from benchmarks.evals.markov.plot_attention_map import square_attention
 
 logger = logging.getLogger(__name__)
-colors = distinctipy.get_colors(300)
+# colors = distinctipy.get_colors(300)
+
+from matplotlib.colors import LinearSegmentedColormap
+
+# Define the seven main colors (red, orange, yellow, green, blue, indigo, violet)
+main_colors = ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#8B00FF"]
+
+
+# Function to generate color variants
+def generate_color_variants(color, n_variants=10):
+    cmap = LinearSegmentedColormap.from_list("custom_cmap", ["#FFFFFF", color])
+    return [cmap(i / n_variants) for i in range(n_variants)]
+
+
+# Generate color variants for each main color
+colors = []
+for color in main_colors:
+    colors.extend(generate_color_variants(color))
 
 
 configs = MarkovConfigs(dataset="math500", model="peiyi9979/mistral-7b-sft", approach="full")
@@ -46,7 +63,7 @@ if __name__ == "__main__":
             attention = square_attention(attentions, layer_id, head_id)
 
             for i in range(attention.shape[1]):
-                ax.plot(attention[:, i], linewidth=1, color=colors[i])
+                ax.plot(attention[:, i], linewidth=1, color=colors[i % len(colors)])
             ax.set_title(f"Layer {layer_id}, Head {head_id}")
 
     plt.savefig(

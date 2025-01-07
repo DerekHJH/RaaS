@@ -179,6 +179,9 @@ def square_attention(attentions: torch.Tensor, layer_id, head_id) -> torch.Tenso
     """
     # A list (of length seq_len) torch.Tensor,
     # each with shape (num_attend_tokens, num_attended_tokens)
+    import pdb
+
+    pdb.set_trace()
     attention = [attentions[i][layer_id][0, head_id, :, :] for i in range(len(attentions))]
     """
     assert attention[0].shape == (num_prefill_tokens, num_prefill_tokens)

@@ -65,6 +65,8 @@ class EvalConfigs:
         ]
     )
 
+    model_config: AutoConfig = field(init=False)
+
     seed: int = 42
     result_path: str = "results"
 
@@ -83,6 +85,7 @@ class EvalConfigs:
         # Parse the arguments.
         args = parser.parse_args()
         configs = cls(**vars(args))
+        configs.model_config = AutoConfig.from_pretrained(configs.model)
         return configs
 
     def __post_init__(self):
@@ -171,7 +174,7 @@ class EvalEngine:
 
         logger.info(f"Loading the model \033[32m{model_name}\033[0m")
 
-        model_config = AutoConfig.from_pretrained(model_name)
+        model_config = self.configs.model_config
         if model_config.model_type == "llama":
             if approach_name == "full" or "sink" in approach_name:  # They differ only in cache type
                 from quest.models.full_llama import LlamaForCausalLM

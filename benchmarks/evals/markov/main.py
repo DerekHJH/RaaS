@@ -24,14 +24,12 @@ logger = logging.getLogger(__name__)
 class MarkovConfigs(EvalConfigs):
     # Overriding the default values of the parent class.
     tot_num_data: int = 1
-    all_datasets: List[str] = field(default_factory=lambda: ["math500"])  # Fixed mutable default
-    all_models: List[str] = field(default_factory=lambda: ["peiyi9979/mistral-7b-sft"])
     all_approaches: List[str] = field(default_factory=lambda: ["full"])
 
     # There are too many layers and heads, we construct the attention maps for
     # a limited number of layers and heads as configured in the `configs`.
-    layer_ids = list(range(32))
-    head_ids = list(range(32))
+    layer_ids: List[int] = field(default_factory=lambda: list(range(32)))
+    head_ids: List[int] = field(default_factory=lambda: list(range(32)))
 
 
 class MarkovEvalEngine(EvalEngine):
@@ -68,62 +66,7 @@ class MarkovEvalEngine(EvalEngine):
         return model_output, attentions
 
     def generate_presentation(self) -> None:
-        """
-        attentions: Tuple (of length `seq_len`) of Tuple (of length `num_layers`) of
-        torch.Tensor --- `seq_len` * `num_layers` torch.Tensor in total,
-        each of shape (`batch_size`, `num_heads`, `num_attend_tokens`, `num_attended_tokens`).
-
-        assert len(attentions) == seq_len
-        assert len(attentions[0]) == num_layers
-        assert attentions[0][0].shape == (batch_size, num_heads, num_prefill_tokens, num_prefill_tokens)
-        assert attentions[1][0].shape == (batch_size, num_heads, 1, num_prefill_tokens + 1)
-        assert attentions[2][0].shape == (batch_size, num_heads, 1, num_prefill_tokens + 2)
-        ...
-        """
-        attentions: Tuple[Tuple[torch.Tensor]] = torch.load(
-            os.path.join(self.configs.result_path, "attentions.pt")
-        )
-
-        for layer_id in self.configs.layer_ids:
-            for head_id in self.configs.head_ids:
-                # A list (of length seq_len) torch.Tensor,
-                # each with shape (num_attend_tokens, num_attended_tokens)
-                attention = [
-                    attentions[i][layer_id][0, head_id, :, :] for i in range(len(attentions))
-                ]
-                """
-                assert attention[0].shape == (num_prefill_tokens, num_prefill_tokens)
-                assert attention[1].shape == (1, num_prefill_tokens + 1)
-                assert attention[2].shape == (1, num_prefill_tokens + 2)
-                """
-                assert attention[0].shape[0] == attention[0].shape[1]
-                assert attention[1].shape == (1, attention[0].shape[1] + 1)
-                assert attention[2].shape == (1, attention[0].shape[1] + 2)
-
-                for i, tensor in enumerate(attention):
-                    padding = (0, attention[-1].shape[1] - tensor.shape[1])  # (left, right)
-                    attention[i] = torch.nn.functional.pad(
-                        tensor, padding, mode="constant", value=0
-                    )
-
-                attention = torch.cat(attention, dim=0).cpu().float()  # shape (seq_len, seq_len)
-
-                # Scale the attention score For better visibility
-                import pdb
-
-                pdb.set_trace()
-                attention = attention > 0.05
-                Sum = attention.sum(dim=0, keepdim=True)
-                Sum[0, 0:10] = 0  # Avoid sink tokens to dominate
-                attention = attention + Sum
-
-                plt.figure(figsize=(12, 10))
-                red_black_cmap = LinearSegmentedColormap.from_list("RedBlack", ["black", "red"])
-                sns.heatmap(attention, cmap=red_black_cmap)
-                plt.savefig(
-                    os.path.join(self.configs.result_path, f"layer_{layer_id}_head_{head_id}.png")
-                )
-                plt.close()
+        pass
 
 
 if __name__ == "__main__":
