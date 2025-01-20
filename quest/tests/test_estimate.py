@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import math
 
-import quest.utils
+import quest.quest_utils
 
 def assert_close(a, b):
     rtol, atol = {
@@ -103,7 +103,7 @@ def test_estimate_correctness(dtype_str, kv_len):
     k_prefill = torch.randn(kv_len-1, num_heads, head_dim, dtype=dtype, device=device)
     v_prefill = torch.randn(kv_len-1, num_heads, head_dim, dtype=dtype, device=device)
 
-    testController = quest.utils.InferenceController(
+    testController = quest.quest_utils.InferenceController(
         num_layers,
         num_heads,
         head_dim,
@@ -118,7 +118,7 @@ def test_estimate_correctness(dtype_str, kv_len):
     testController.prepare_metadata(kv_len-1)
     testController.begin_forward(kv_len-1)
     # Construct KV
-    quest.utils.append_kv(k_prefill, v_prefill, testController, 0)
+    quest.quest_utils.append_kv(k_prefill, v_prefill, testController, 0)
     testController.end_forward()
 
     k_decode = torch.randn(1, num_heads, head_dim, dtype=dtype, device=device)
@@ -127,8 +127,8 @@ def test_estimate_correctness(dtype_str, kv_len):
     # CUDA Evaluation
     testController.prepare_metadata(qo_len)
     testController.begin_forward(qo_len)
-    quest.utils.append_kv(k_decode, v_decode, testController, 0)
-    cuda_estimated_value = quest.utils.decode_estimate(
+    quest.quest_utils.append_kv(k_decode, v_decode, testController, 0)
+    cuda_estimated_value = quest.quest_utils.decode_estimate(
         q,
         testController,
         0,

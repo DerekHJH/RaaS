@@ -62,6 +62,11 @@ class EvalConfigs:
             "quest-256",
             "quest-512",
             "quest-1024",
+            "quest_optimized-64",
+            "quest_optimized-128",
+            "quest_optimized-256",
+            "quest_optimized-512",
+            "quest_optimized-1024",
             "raas-64",
             "raas-128",
             "raas-256",
@@ -182,7 +187,16 @@ class EvalEngine:
 
         model_config = self.configs.model_config
         if model_config.model_type == "llama":
-            from transformers import LlamaForCausalLM
+
+            optimized = ("optimized" in approach_name)
+
+            if optimized:
+                if "quest" in approach_name:
+                    from quest.models.quest_llama_optimized import LlamaForCausalLM
+                else:
+                    raise ValueError(f"Optimized version does not support {approach_name}")
+            else:
+                from transformers import LlamaForCausalLM
 
             if approach_name == "full" or "sink" in approach_name:  # They differ only in cache type
                 model = LlamaForCausalLM.from_pretrained(
@@ -203,12 +217,17 @@ class EvalEngine:
                     {"cache_budget": int(approach_name.split("-")[-1])},
                 )
             elif "quest" in approach_name:
-                from quest.models.quest_llama import enable_quest_attention_eval
+                if optimized:
+                    from quest.models.quest_llama_optimized import enable_quest_attention_eval
+                else:
+                    from quest.models.quest_llama import enable_quest_attention_eval
+
 
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
                     device_map="cuda:0",
                     trust_remote_code=True,
+                    torch_dtype=torch.float16,
                 )
                 enable_quest_attention_eval(
                     model,
@@ -353,7 +372,6 @@ class EvalEngine:
 
             cache_budget = int(self.configs.approach.split("-")[-1])
             past_key_values = RaaSCache(page_size=16, cache_budget=cache_budget)
-
         with torch.no_grad():
 
             # Prefill
@@ -403,6 +421,8 @@ class EvalEngine:
             JCT = prefill_time + np.sum(decode_time)
             TPOT = np.sum(decode_time) / num_decode
 
+        if "optimized" in self.configs.approach:
+            pipe.model.reset_model()
         model_output = pipe.tokenizer.decode(generated_content, skip_special_tokens=True)
         return model_output, TTFT, JCT, TPOT, num_decode
 

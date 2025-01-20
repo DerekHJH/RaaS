@@ -20,7 +20,7 @@ include(rapids-cuda)
 include(rapids-export)
 include(rapids-find)
 
-project(_kernels LANGUAGES CUDA CXX)  # Replace with your project's name
+project(_quest_kernels LANGUAGES CUDA CXX)  # Replace with your project's name
 
 # ------------- configure raft -----------------#
 rapids_cpm_init()
@@ -37,11 +37,11 @@ find_library(TORCH_PYTHON_LIBRARY torch_python PATH "${TORCH_INSTALL_PREFIX}/lib
 add_subdirectory(${CMAKE_SOURCE_DIR}/../../kernels/3rdparty/pybind ${CMAKE_BINARY_DIR}/pybind11)
 
 file(GLOB PYTORCH_SOURCES "csrc/*.cu")
-pybind11_add_module(_kernels MODULE ${PYTORCH_CPP_SOURCES} ${PYTORCH_SOURCES})
+pybind11_add_module(_quest_kernels MODULE ${PYTORCH_CPP_SOURCES} ${PYTORCH_SOURCES})
 
-target_compile_definitions(_kernels PRIVATE -DBSK_TORCH_CHECK) # Enable Torch Tensor Dimension Check
-target_include_directories(_kernels PRIVATE ${CMAKE_SOURCE_DIR}/../../kernels/include)
-target_include_directories(_kernels PRIVATE ${CMAKE_SOURCE_DIR}/../../kernels/3rdparty/flashinfer/include)
-target_include_directories(_kernels PRIVATE ${CMAKE_SOURCE_DIR}/../../kernels/3rdparty/pybind/include)
-target_compile_options(_kernels PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-extended-lambda --expt-relaxed-constexpr>)
-target_link_libraries(_kernels PRIVATE ${TORCH_LIBRARIES} raft::raft Python::Python pybind11::module ${TORCH_PYTHON_LIBRARY})
+target_compile_definitions(_quest_kernels PRIVATE -DBSK_TORCH_CHECK) # Enable Torch Tensor Dimension Check
+target_include_directories(_quest_kernels PRIVATE ${CMAKE_SOURCE_DIR}/../../kernels/include)
+target_include_directories(_quest_kernels PRIVATE ${CMAKE_SOURCE_DIR}/../../kernels/3rdparty/flashinfer/include)
+target_include_directories(_quest_kernels PRIVATE ${CMAKE_SOURCE_DIR}/../../kernels/3rdparty/pybind/include)
+target_compile_options(_quest_kernels PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-extended-lambda --expt-relaxed-constexpr>)
+target_link_libraries(_quest_kernels PRIVATE ${TORCH_LIBRARIES} raft::raft Python::Python pybind11::module ${TORCH_PYTHON_LIBRARY})

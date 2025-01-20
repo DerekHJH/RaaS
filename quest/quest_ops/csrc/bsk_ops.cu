@@ -1,7 +1,7 @@
 #include <torch/extension.h>
 #include "bsk_ops.h"
 
-PYBIND11_MODULE(_kernels, m) {
+PYBIND11_MODULE(_quest_kernels, m) {
 	m.def("apply_rope_in_place", &apply_rope_in_place, "Apply RoPE on Q/K in place.");
 	m.def("rms_norm_forward", &rms_norm_forward, "rms_norm_forward by cutlass");
 	m.def("topk_filtering", &topk_filtering, "Top-k filtering operator");
