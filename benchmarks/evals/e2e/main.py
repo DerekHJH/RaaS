@@ -190,21 +190,15 @@ class EvalEngine:
 
             optimized = ("optimized" in approach_name)
 
-            if optimized:
-                if "quest" in approach_name:
-                    from quest.models.quest_llama_optimized import LlamaForCausalLM
-                else:
-                    raise ValueError(f"Optimized version does not support {approach_name}")
-            else:
-                from transformers import LlamaForCausalLM
-
             if approach_name == "full" or "sink" in approach_name:  # They differ only in cache type
+                from transformers import LlamaForCausalLM
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
                     device_map="cuda:0",
                     trust_remote_code=True,
                 )
             elif "h2o" in approach_name:
+                from transformers import LlamaForCausalLM
                 from quest.models.h2o_llama import enable_h2o_attention_eval
 
                 model = LlamaForCausalLM.from_pretrained(
@@ -216,18 +210,29 @@ class EvalEngine:
                     model,
                     {"cache_budget": int(approach_name.split("-")[-1])},
                 )
-            elif "quest" in approach_name:
-                if optimized:
-                    from quest.models.quest_llama_optimized import enable_quest_attention_eval
-                else:
-                    from quest.models.quest_llama import enable_quest_attention_eval
-
-
+            elif "quest" in approach_name and optimized:
+                from quest.models.quest_llama_optimized import LlamaForCausalLM
+                from quest.models.quest_llama_optimized import enable_quest_attention_eval
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
                     device_map="cuda:0",
                     trust_remote_code=True,
-                    torch_dtype=torch.float16,
+                    torch_dtype=torch.float16, # Use float16 for optimized version
+                )
+                enable_quest_attention_eval(
+                    model,
+                    {
+                        "cache_budget": int(approach_name.split("-")[-1]),
+                        "page_size": 16,  # Fixed as stated in the paper
+                    },
+                )
+            elif "quest" in approach_name and not optimized:
+                from transformers import LlamaForCausalLM
+                from quest.models.quest_llama import enable_quest_attention_eval
+                model = LlamaForCausalLM.from_pretrained(
+                    model_name,
+                    device_map="cuda:0",
+                    trust_remote_code=True,
                 )
                 enable_quest_attention_eval(
                     model,
@@ -237,6 +242,7 @@ class EvalEngine:
                     },
                 )
             elif "raas" in approach_name:
+                from transformers import LlamaForCausalLM
                 from quest.models.raas_llama import enable_raas_attention_eval
 
                 model = LlamaForCausalLM.from_pretrained(
