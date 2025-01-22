@@ -72,6 +72,11 @@ class EvalConfigs:
             "raas-256",
             "raas-512",
             "raas-1024",
+            "raas_optimized-64",
+            "raas_optimized-128",
+            "raas_optimized-256",
+            "raas_optimized-512",
+            "raas_optimized-1024",
         ]
     )
 
@@ -197,6 +202,8 @@ class EvalEngine:
                     device_map="cuda:0",
                     trust_remote_code=True,
                 )
+                # TODO(wenrui): maybe add an "optimized" version of "full" etc,
+                # that uses mocked GQA, to align "optimized" tests
             elif "h2o" in approach_name:
                 from transformers import LlamaForCausalLM
                 from quest.models.h2o_llama import enable_h2o_attention_eval
@@ -241,7 +248,23 @@ class EvalEngine:
                         "page_size": 16,  # Fixed as stated in the paper
                     },
                 )
-            elif "raas" in approach_name:
+            elif "raas" in approach_name and optimized:
+                from quest.models.raas_llama_optimized import LlamaForCausalLM
+                from quest.models.raas_llama_optimized import enable_raas_attention_eval
+                model = LlamaForCausalLM.from_pretrained(
+                    model_name,
+                    device_map="cuda:0",
+                    trust_remote_code=True,
+                    torch_dtype=torch.float16, # Use float16 for optimized version
+                )
+                enable_raas_attention_eval(
+                    model,
+                    {
+                        "cache_budget": int(approach_name.split("-")[-1]),
+                        "page_size": 16,  # Fixed as stated in the paper
+                    },
+                )
+            elif "raas" in approach_name and not optimized:
                 from transformers import LlamaForCausalLM
                 from quest.models.raas_llama import enable_raas_attention_eval
 

@@ -45,8 +45,8 @@ from transformers.utils import (
 )
 from transformers.models.llama.configuration_llama import LlamaConfig
 
-import quest.quest_utils as quest_utils
-from quest.quest_utils.controller import InferenceController
+import quest.raas_utils as raas_utils
+from quest.raas_utils.controller import InferenceController
 
 
 logger = logging.get_logger(__name__)
@@ -65,7 +65,7 @@ class LlamaRMSNorm(nn.Module):
 		self.variance_epsilon = eps
 
 	def forward(self, hidden_states):
-		return quest_utils.rms_norm_forward(hidden_states, self.weight, self.variance_epsilon)
+		return raas_utils.rms_norm_forward(hidden_states, self.weight, self.variance_epsilon)
 
 	def extra_repr(self):
 		return f"{tuple(self.weight.shape)}, eps={self.variance_epsilon}"
@@ -237,7 +237,7 @@ class LlamaAttention(nn.Module):
 	) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
 		bsz, q_len, _ = hidden_states.size()
 
-		assert bsz == 1, "QuestAttention only supports batch size 1."
+		assert bsz == 1, "RaaSAttention only supports batch size 1."
 		ori_dtype = hidden_states.dtype
 		query_states = self.q_proj(hidden_states).to(torch.float16)
 		key_states = self.k_proj(hidden_states).to(torch.float16)
@@ -254,7 +254,7 @@ class LlamaAttention(nn.Module):
 		key_states = repeat_kv(key_states, self.num_key_value_groups)
 		value_states = repeat_kv(value_states, self.num_key_value_groups)
 
-		quest_utils.apply_rope_in_place(
+		raas_utils.apply_rope_in_place(
             query_states,
             key_states,
             iController.kv_cache.seqlen - q_len,
@@ -263,10 +263,10 @@ class LlamaAttention(nn.Module):
         )
 
 
-        # Quest manages KV-Cache internal (with PageAttention)
+        # RaaS manages KV-Cache internal (with PageAttention)
         # Here we do not concat / stack
         # We concat after RoPE
-		quest_utils.append_kv(
+		raas_utils.append_kv(
             key_states,
             value_states,
             iController,
@@ -274,37 +274,43 @@ class LlamaAttention(nn.Module):
         )
 
 		if q_len > 1:
-			attn_output = quest_utils.prefill_forward(
+			attn_output = raas_utils.prefill_forward(
 				query_states,
 				iController,
 				self.layer_idx,
 			)
 		else:
 			# Skipping layers is controled by PAGE_BUDGET, which is set in LlamaModel.
-			if not iController.need_estimate():
-				attn_output = quest_utils.decode_sparse_attn(
+			# if not iController.need_estimate():
+
+			if iController._page_budget == iController.max_page_limit:
+				# INFO(raas): skip the first several layers
+				attn_output = raas_utils.decode_sparse_attn(
 					query_states,
 					iController,
 					self.layer_idx,
 					iController.kv_indices_without_last,
 				)
 			else:
-				estimated_attn_score = quest_utils.decode_estimate(
+				# breakpoint()
+				estimated_attn_score = raas_utils.decode_estimate(
 					query_states,
 					iController,
 					self.layer_idx,
 				)
 
-				quest_utils.decode_topk(
+				raas_utils.decode_topk(
 					estimated_attn_score,
 					iController,
 				)
 
-				attn_output = quest_utils.decode_sparse_attn(
+				iController.update_timestamp(self.layer_idx)
+				attn_output = raas_utils.decode_sparse_attn(
 					query_states,
 					iController,
 					self.layer_idx,
-					iController.topk_dindices_buffer,
+					# iController.topk_dindices_buffer,
+					iController.get_saved_pages(self.layer_idx),
 				)
 
 		attn_output = attn_output.unsqueeze(0)  # unsqueeze the batch dimension
@@ -559,7 +565,7 @@ class LlamaModel(LlamaPreTrainedModel):
 		if getattr(config, "pretraining_tp", 1) != 1:
 			logger.warn("`pretraining_tp` is deprecated, please use `model.tensor_parallel` instead.")
 
-        # Leave Quest controller as uninitialized
+        # Leave RaaS controller as uninitialized
 		self.iController: Optional[InferenceController] = None
 
 		# Initialize weights and apply final processing
@@ -641,21 +647,21 @@ class LlamaModel(LlamaPreTrainedModel):
 		all_self_attns = () if output_attentions else None
 		next_decoder_cache = None
 
-		# Configure Quest Controller
+		# Configure RaaS Controller
 		# Prepare indices/indptr for newly appended tokens
-		assert self.iController is not None, "Please init Quest Controller first."
+		assert self.iController is not None, "Please init RaaS Controller first."
 		self.iController.prepare_metadata(seq_length)
 
 		# Skip layers by setting infinite budgets
-		if self._quest_skip_layer > 0:
-			self.iController.set_page_budget(self._quest_max_page_limit)
+		if self._raas_skip_layer > 0:
+			self.iController.set_page_budget(self._raas_max_page_limit)
 			self.iController.begin_forward(seq_length)
 
 		for idx, decoder_layer in enumerate(self.layers[: self.config.num_hidden_layers]):
 			# Configure regular skipping layers
-			if idx == self._quest_skip_layer:
+			if idx == self._raas_skip_layer:
 				self.iController.end_forward()
-				self.iController.set_page_budget(self._quest_page_budget)
+				self.iController.set_page_budget(self._raas_page_budget)
 				# Avoid the redundant init/copy of metadata
 				# if previous skip layer does, then skip it again
 				self.iController.begin_forward(seq_length, updateTensor=(idx == 0))
@@ -847,12 +853,12 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
 		self.model = LlamaModel(config)
 		self.vocab_size = config.vocab_size
 		self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
-		self._config = config  # saved for quest init
+		self._config = config  # saved for raas init
 
 		# Initialize weights and apply final processing
 		self.post_init()
 
-	def quest_init(
+	def raas_init(
 		self,
 		page_size: int,
 		max_seq_len: int,
@@ -861,29 +867,30 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
 		device=torch.device("cuda:0"),
 	):
 		"""
-		Init function for Quest. Must be called before forwarding.
+		Init function for RaaS. Must be called before forwarding.
 		This function allocates all GPU memory for max_seq_len KV-Cache.
 		"""
-		assert self.model.iController is None, "Can't init Quest Controller twice."
+		assert self.model.iController is None, "Can't init RaaS Controller twice."
 
 		config = self._config
-		self.model._quest_page_size = page_size
-		self.model._quest_page_budget = token_budget // page_size  # default page budget
-		self.model._quest_max_page_limit = 1024 * 1024  # arbitraty large size
-		self.model._quest_skip_layer = 2
+		self.model._raas_page_size = page_size
+		self.model._raas_page_budget = token_budget // page_size  # default page budget
+		self.model._raas_max_page_limit = 1024 * 1024  # arbitraty large size
+		self.model._raas_skip_layer = 2
 
 		self.model.iController = InferenceController(
 			num_layers=config.num_hidden_layers,
 			num_heads=config.num_attention_heads,
 			head_dim=config.hidden_size // config.num_attention_heads,
 			page_size=page_size,
-			page_budget=self.model._quest_page_budget,
+			page_budget=self.model._raas_page_budget,
 			max_seq_len=max_seq_len,  # Used for allocating KV Pools
+			max_page_limit=self.model._raas_max_page_limit,
 			dtype=dtype,
 			device=device,
 		)
 
-		print(f"Quest allocates KV-Cache of {max_seq_len} tokens")
+		print(f"RaaS allocates KV-Cache of {max_seq_len} tokens")
 		print(f"Token budget is set to {token_budget}")
 
 	def reset_model(self):
@@ -1002,10 +1009,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
 			attentions=outputs.attentions,
 		)
 
-def enable_quest_attention_eval(model: LlamaForCausalLM, args: Dict):
+def enable_raas_attention_eval(model: LlamaForCausalLM, args: Dict):
 	cache_budget = args["cache_budget"]
 	page_size = args["page_size"]
 	max_seq_len = args.get("max_seq_len", model.config.max_position_embeddings)
 	dtype = args.get("dtype", torch.float16)
 	device = args.get("device", torch.device("cuda:0"))
-	model.quest_init(page_size, max_seq_len, cache_budget, dtype, device)
+	model.raas_init(page_size, max_seq_len, cache_budget, dtype, device)
