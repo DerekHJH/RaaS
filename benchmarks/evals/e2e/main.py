@@ -47,6 +47,7 @@ class EvalConfigs:
     all_approaches: List[str] = field(
         default_factory=lambda: [
             "full",
+            "full_optimized",
             "sink-64",
             "sink-128",
             "sink-256",
@@ -172,7 +173,8 @@ class EvalEngine:
         dataset: Data_set = str2class[dataset_name](
             tokenizer=tokenizer,
             path=self.configs.result_path,
-            tot_num_data=self.configs.tot_num_data,
+            # tot_num_data=self.configs.tot_num_data,
+            tot_num_data=3,
         )
         dataset.save_dataset(self.configs.result_path)
 
@@ -196,6 +198,14 @@ class EvalEngine:
                     model_name,
                     device_map="cuda:0",
                     trust_remote_code=True,
+                )
+            elif "full" in approach_name and optimized:
+                from quest.models.full_llama_optimized import LlamaForCausalLM
+                model = LlamaForCausalLM.from_pretrained(
+                    model_name,
+                    device_map="cuda:0",
+                    trust_remote_code=True,
+                    torch_dtype=torch.float16, # Use float16 for optimized version
                 )
             elif "h2o" in approach_name:
                 from transformers import LlamaForCausalLM
@@ -337,6 +347,10 @@ class EvalEngine:
             results[f"JCT_{self.configs.approach}"].append(JCT)
             results[f"TPOT_{self.configs.approach}"].append(TPOT)
             results[f"num_decode_{self.configs.approach}"].append(num_decode)
+            # log the results each loop
+            logger.info(
+                f"Prompt: {prompt}\nAnswer: {answer}\nOutput: {model_output}\nTTFT: {TTFT:.2f} s\nJCT: {JCT:.2f} s\nTPOT: {TPOT:.2f} s\nNum_decode: {num_decode}"
+            )
         dataset.update(results)
         dataset.save_dataset(self.configs.result_path)
 
@@ -360,7 +374,7 @@ class EvalEngine:
         cache_position = torch.arange(input_ids.shape[1], dtype=torch.int64, device="cuda:0")
 
         # Initialize the cache
-        if self.configs.approach == "full":
+        if self.configs.approach == "full" or "full_optimized":
             past_key_values = DynamicCache()
         elif "sink" in self.configs.approach:
             cache_budget = int(self.configs.approach.split("-")[-1])
