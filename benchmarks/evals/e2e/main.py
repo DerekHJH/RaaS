@@ -53,6 +53,11 @@ class EvalConfigs:
             "sink-256",
             "sink-512",
             "sink-1024",
+            "sink_optimized-64",
+            "sink_optimized-128",
+            "sink_optimized-256",
+            "sink_optimized-512",
+            "sink_optimized-1024",
             "h2o-84",
             "h2o-128",
             "h2o-256",
@@ -178,8 +183,7 @@ class EvalEngine:
         dataset: Data_set = str2class[dataset_name](
             tokenizer=tokenizer,
             path=self.configs.result_path,
-            # tot_num_data=self.configs.tot_num_data,
-            tot_num_data=3,
+            tot_num_data=self.configs.tot_num_data,
         )
         dataset.save_dataset(self.configs.result_path)
 
@@ -368,10 +372,6 @@ class EvalEngine:
             results[f"JCT_{self.configs.approach}"].append(JCT)
             results[f"TPOT_{self.configs.approach}"].append(TPOT)
             results[f"num_decode_{self.configs.approach}"].append(num_decode)
-            # log the results each loop
-            logger.info(
-                f"Prompt: {prompt}\nAnswer: {answer}\nOutput: {model_output}\nTTFT: {TTFT:.2f} s\nJCT: {JCT:.2f} s\nTPOT: {TPOT:.2f} s\nNum_decode: {num_decode}"
-            )
         dataset.update(results)
         dataset.save_dataset(self.configs.result_path)
 
