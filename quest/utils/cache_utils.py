@@ -92,7 +92,6 @@ class RaaSCache(DynamicCache):
         self.page_id_to_access_status[layer_idx].scatter_(-1, access_page_ids[..., :self.page_budget // 2], self.counter)
 
 
-
 class H2OCache(DynamicCache):
     """
     The following implementation assumes that the cache is not full at the beginning of the decoding process.

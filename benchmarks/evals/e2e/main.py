@@ -52,7 +52,7 @@ class EvalConfigs:
             "sink-256",
             "sink-512",
             "sink-1024",
-            "h2o-84",
+            "h2o-64",
             "h2o-128",
             "h2o-256",
             "h2o-512",

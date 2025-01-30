@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Tuple
+from typing import List
 
 import seaborn as sns
 import torch
@@ -68,141 +68,22 @@ def get_sink_attention(attention: torch.Tensor) -> torch.Tensor:
     return attention
 
 
-def get_h2o_attention(attention: torch.Tensor) -> torch.Tensor:
-    """
-    Get the simulated attention map when using the h2o algorithm.
-    """
-    attention = attention.clone()  # (seq_len, seq_len)
-    cum_attn_score = torch.cumsum(attention, dim=0)  # (seq_len, seq_len)
-    evict_ids = []
-
-    for i in range(cache_budget, attention.shape[0]):
-        # Find the token with the smallest cumulative attention score, which is to be evicted
-        evict_id = torch.argmin(cum_attn_score[i, : i + 1 - cache_budget // 2]).item()
-        assert evict_id not in evict_ids, f"evict_id {evict_id} already in evict_ids {evict_ids}"
-        evict_ids.append(evict_id)
-
-        # Mark the token to be evicted
-        cum_attn_score[:, evict_id] = 2  # Magic number as long as it is greater than 1
-        attention[i, cum_attn_score[i, :] == 2] = 0
-        assert (
-            attention[i, :] != 0
-        ).sum() <= cache_budget, "Attention has more than cache_budget non-zero elements"
-
-        row_sum = attention[i].sum()
-        attention[i] /= row_sum
-    return attention
-
-
-def get_quest_attention(attention: torch.Tensor) -> torch.Tensor:
-    """
-    Get the simulated attention map when using the quest algorithm.
-    """
-
-    attention = attention.clone()
-    k = cache_budget // page_size - 1  # Always choose the last page
-    for i in range(cache_budget, attention.shape[0]):
-
-        # We always keep the last page. So we only discuss whether to keep preceding pages
-        line_attention = attention[i, : i // page_size * page_size]
-        mask = torch.zeros_like(line_attention, dtype=torch.bool)
-        line_attention = line_attention.reshape(-1, page_size)
-
-        the_max_value_in_each_page = line_attention.max(dim=-1).values
-        topk_page_ids = the_max_value_in_each_page.topk(k).indices
-
-        token_ids_in_the_topk_pages = topk_page_ids.unsqueeze(-1).repeat(
-            1, page_size
-        ) * page_size + torch.arange(page_size, device=topk_page_ids.device)
-        token_ids_in_the_topk_pages = token_ids_in_the_topk_pages.reshape(-1)
-
-        mask.scatter_(0, token_ids_in_the_topk_pages, True)
-        line_attention = line_attention.reshape(-1)
-        line_attention[~mask] = 0
-
-        row_sum = attention[i].sum()
-        attention[i] /= row_sum
-    return attention
-
-
-def get_raas_attention(attention: torch.Tensor) -> torch.Tensor:
-    """
-    Get the simulated attention map when using the raas algorithm.
-    """
-
-    attention = attention.clone()
-    # k = cache_budget // page_size - 1  # Always choose the last page
-    # for i in range(cache_budget, attention.shape[0]):
-    #     import pdb
-
-    #     pdb.set_trace()
-    #     # We always keep the last page. So we only discuss whether to keep preceding pages
-    #     line_attention = attention[i, : i // page_size * page_size]
-    #     mask = torch.zeros_like(line_attention, dtype=torch.bool)
-    #     line_attention = line_attention.reshape(-1, page_size)
-
-    #     the_max_value_in_each_page = line_attention.max(dim=-1).values
-    #     topk_page_ids = the_max_value_in_each_page.topk(k).indices
-
-    #     token_ids_in_the_topk_pages = topk_page_ids.unsqueeze(-1).repeat(
-    #         1, page_size
-    #     ) * page_size + torch.arange(page_size, device=topk_page_ids.device)
-    #     token_ids_in_the_topk_pages = token_ids_in_the_topk_pages.reshape(-1)
-
-    #     mask.scatter_(0, token_ids_in_the_topk_pages, True)
-    #     line_attention = line_attention.reshape(-1)
-    #     line_attention[~mask] = 0
-
-    #     row_sum = attention[i].sum()
-    #     attention[i] /= row_sum
-    return attention
-
-
-def square_attention(attentions: torch.Tensor, layer_id, head_id) -> torch.Tensor:
-    """
-    Arrange the attention map into a square matrix.
-
-    Args:
-        attentions: Tuple (of length `seq_len`) of Tuple (of length `num_layers`) of
-        torch.Tensor --- `seq_len` * `num_layers` torch.Tensor in total,
-        each of shape (`batch_size`, `num_heads`, `num_attend_tokens`, `num_attended_tokens`).
-
-        assert len(attentions) == seq_len
-        assert len(attentions[0]) == num_layers
-        assert attentions[0][0].shape == (batch_size, num_heads, num_prefill_tokens, num_prefill_tokens)
-        assert attentions[1][0].shape == (batch_size, num_heads, 1, num_prefill_tokens + 1)
-        assert attentions[2][0].shape == (batch_size, num_heads, 1, num_prefill_tokens + 2)
-
-        layer_id: int, the layer index of the attention map to be plotted.
-        head_id: int, the head index of the attention map to be plotted.
-
-    Returns:
-        torch.Tensor, the arranged attention map, with shape (`seq_len`, `seq_len`).
-    """
-    # A list (of length seq_len) torch.Tensor,
-    # each with shape (num_attend_tokens, num_attended_tokens)
-    attention = [attentions[i][layer_id][0, head_id, :, :] for i in range(len(attentions))]
-    """
-    assert attention[0].shape == (num_prefill_tokens, num_prefill_tokens)
-    assert attention[1].shape == (1, num_prefill_tokens + 1)
-    assert attention[2].shape == (1, num_prefill_tokens + 2)
-    """
-    assert attention[0].shape[0] == attention[0].shape[1]
-    assert attention[1].shape == (1, attention[0].shape[1] + 1)
-    assert attention[2].shape == (1, attention[0].shape[1] + 2)
-
-    for i, tensor in enumerate(attention):
-        padding = (0, attention[-1].shape[1] - tensor.shape[1])  # (left, right)
-        attention[i] = torch.nn.functional.pad(tensor, padding, mode="constant", value=0)
-
-    attention = torch.cat(attention, dim=0).cpu().float()  # shape (seq_len, seq_len)
-    return attention
-
-
 if __name__ == "__main__":
 
-    attentions: Tuple[Tuple[torch.Tensor]] = torch.load(
-        os.path.join(configs.result_path, "attentions.pt")
+    full_attentions: List[torch.Tensor] = torch.load(
+        os.path.join(configs.result_path, "full_attentions.pt")
+    )
+    # sink_attentions: List[torch.Tensor] = torch.load(
+    #     os.path.join(configs.result_path, "sink-128_attentions.pt")
+    # )
+    h2o_attentions: List[torch.Tensor] = torch.load(
+        os.path.join(configs.result_path, "h2o-512_attentions.pt")
+    )
+    quest_attentions: List[torch.Tensor] = torch.load(
+        os.path.join(configs.result_path, "quest-128_attentions.pt")
+    )
+    raas_attentions: List[torch.Tensor] = torch.load(
+        os.path.join(configs.result_path, "raas-128_attentions.pt")
     )
 
     for layer_id in tot_layer_ids:
@@ -210,25 +91,40 @@ if __name__ == "__main__":
 
             logger.info(f"Processing layer {layer_id}, head {head_id}")
 
-            attention = square_attention(attentions, layer_id, head_id)
-
             # Scale the attention score For better visibility
 
             # Plot
-            fig, axs = plt.subplots(1, 2, figsize=(16, 4))
-            red_black_cmap = LinearSegmentedColormap.from_list("RedBlack", ["black", "red"])
+            fig, axs = plt.subplots(1, 4, figsize=(16, 4))
 
-            sns.heatmap(attention, cmap="viridis", ax=axs[0], cbar=False)
-            sns.heatmap(get_sink_attention(attention), cmap="viridis", ax=axs[1], cbar=False)
-            # sns.heatmap(get_h2o_attention(attention), cmap="viridis", ax=axs[2], cbar=False)
-            # sns.heatmap(get_quest_attention(attention), cmap="viridis", ax=axs[3], cbar=False)
-            # sns.heatmap(get_raas_attention(attention), cmap="viridis", ax=axs[4], cbar=False)
+            sns.heatmap(
+                full_attentions[layer_id][0, head_id, ...].cpu().float(),
+                cmap="viridis",
+                ax=axs[0],
+                cbar=False,
+            )
+            sns.heatmap(
+                h2o_attentions[layer_id][0, head_id, ...].cpu().float(),
+                cmap="viridis",
+                ax=axs[1],
+                cbar=False,
+            )
+            sns.heatmap(
+                quest_attentions[layer_id][0, head_id, ...].cpu().float(),
+                cmap="viridis",
+                ax=axs[2],
+                cbar=False,
+            )
+            sns.heatmap(
+                raas_attentions[layer_id][0, head_id, ...].cpu().float(),
+                cmap="viridis",
+                ax=axs[3],
+                cbar=False,
+            )
 
             axs[0].set_title("full")
-            axs[1].set_title("sink")
-            # axs[2].set_title("h2o")
-            # axs[3].set_title("quest")
-            # axs[4].set_title("raas")
+            axs[1].set_title("h2o")
+            axs[2].set_title("quest")
+            axs[3].set_title("raas")
 
             plt.savefig(
                 os.path.join(configs.result_path, f"layer_{layer_id}_head_{head_id}.png"),
