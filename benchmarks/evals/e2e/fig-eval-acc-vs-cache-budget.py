@@ -82,11 +82,8 @@ if __name__ == "__main__":
                     x_list.append(x_metric)
                     y_list.append(y_metric)
 
-                if (
-                    len(x_list) != 0
-                ):  # This is because sink is missing, delete this line if sink is added
-                    max_x_metric = max(max_x_metric, max(x_list))
-                    max_y_metric = max(max_y_metric, max(y_list))
+                max_x_metric = max(max_x_metric, max(x_list))
+                max_y_metric = max(max_y_metric, max(y_list))
 
                 if "full" in approach_name:
                     axs[i][j].plot(
