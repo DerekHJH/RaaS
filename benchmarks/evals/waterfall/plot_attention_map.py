@@ -7,7 +7,7 @@ import torch
 from matplotlib import pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 
-from benchmarks.evals.markov.main import MarkovConfigs
+from benchmarks.evals.waterfall.main import MarkovConfigs
 
 logger = logging.getLogger(__name__)
 
