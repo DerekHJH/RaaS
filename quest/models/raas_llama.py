@@ -182,10 +182,11 @@ def forward(
             f" {attn_weights.size()}"
         )
 
-    # We do not accept external attention mask for RaaS Attention, we prepare the mask_bottom here
-    assert attention_mask is None, "External attention mask is not supported for RaaS Attention"
-    attention_mask = past_key_value.get_attention_mask(attn_weights, self.layer_idx)
+    if attention_mask is not None:  # no matter the length, we just slice it
+        causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
+        attn_weights = attn_weights + causal_mask
 
+    attention_mask = past_key_value.get_attention_mask(attn_weights, self.layer_idx)
     if attention_mask is not None:
         # The following assertion is to make sure all heads share the same attention mask
         # But quest and raas allow different attention masks for different heads

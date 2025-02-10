@@ -7,8 +7,8 @@ import seaborn as sns
 import torch
 from matplotlib import pyplot as plt
 
-from benchmarks.evals.markov.main import MarkovConfigs
-from benchmarks.evals.markov.plot_attention_map import square_attention
+from benchmarks.evals.waterfall.main import MarkovConfigs
+from benchmarks.evals.waterfall.plot_attention_map import square_attention
 
 logger = logging.getLogger(__name__)
 colors = distinctipy.get_colors(300)
