@@ -411,6 +411,9 @@ class LlamaFlashAttention2(LlamaAttention):
 		key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 		value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
+		# change for none-GQA
+		key_states = repeat_kv(key_states, self.num_key_value_groups)
+		value_states = repeat_kv(value_states, self.num_key_value_groups)
 		if position_embeddings is None:
 			logger.warning_once(
 				"The attention layers in this model are transitioning from computing the RoPE embeddings internally "
