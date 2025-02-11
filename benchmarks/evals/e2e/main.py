@@ -375,7 +375,9 @@ class EvalEngine:
             # Decode autoregressively
             decode_time = []
             for num_decode in range(
-                pipe.model.config.max_position_embeddings - 512
+                min(
+                    pipe.model.config.max_position_embeddings - 512, 10 * 2**10
+                )  # Less than 10k to speed up benchmarking
             ):  # Reserve 1024 tokens for the prompt
 
                 input_ids = next_token_id
