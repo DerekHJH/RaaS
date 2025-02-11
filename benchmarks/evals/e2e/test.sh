@@ -1,5 +1,5 @@
 dataset="aime"
-model="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+model="Qwen/Qwen2.5-Math-7B-Instruct"
 approach="full"
 
 command="python3 main.py --dataset ${dataset} --model ${model} --approach ${approach}"
