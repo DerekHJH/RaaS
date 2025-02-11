@@ -201,14 +201,14 @@ class EvalEngine:
 
             optimized = ("optimized" in approach_name)
 
-            if (approach_name == "full" or "sink" in approach_name) and not optimized:  # They differ only in cache type
+            if ("full" in approach_name or "sink" in approach_name) and not optimized:  # They differ only in cache type
                 from transformers import LlamaForCausalLM
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
                     device_map="cuda:0",
                     trust_remote_code=True,
                 )
-            elif (approach_name == "full" or "sink" in approach_name) and optimized:
+            elif ("full" in approach_name or "sink" in approach_name) and optimized:
                 from quest.models.full_llama_optimized import LlamaForCausalLM
                 model = LlamaForCausalLM.from_pretrained(
                     model_name,
@@ -395,7 +395,7 @@ class EvalEngine:
         cache_position = torch.arange(input_ids.shape[1], dtype=torch.int64, device="cuda:0")
 
         # Initialize the cache
-        if self.configs.approach == "full" or "full_optimized":
+        if self.configs.approach in ["full", "full_optimized"]:
             past_key_values = DynamicCache()
         elif "sink" in self.configs.approach:
             cache_budget = int(self.configs.approach.split("-")[-1])
