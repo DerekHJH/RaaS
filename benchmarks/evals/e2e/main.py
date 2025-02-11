@@ -42,6 +42,8 @@ class EvalConfigs:
             "peiyi9979/mistral-7b-sft",
             "AIDC-AI/Marco-o1",
             "Qwen/Qwen2.5-Math-7B-Instruct",
+            "agentica-org/DeepScaleR-1.5B-Preview",
+            "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
         ]
     )
     all_approaches: List[str] = field(

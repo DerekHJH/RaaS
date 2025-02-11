@@ -18,13 +18,14 @@ if __name__ == "__main__":
         x_vals[::-1], y_vals_2[::-1], bottom=y_vals_1[::-1], label="Decode time", color="tab:orange"
     )  # Stack C on top of B
 
-    ax.set_xlabel("# decode tokens / k (# prefill tokens= 32k - # decode tokens)", fontsize=11)
-    ax.set_ylabel("time/s", fontsize=11)
-    ax.tick_params(axis="x", labelsize=11)
-    ax.tick_params(axis="y", labelsize=11)
-    ax.legend(fontsize=10)
+    ax.set_xlabel("# decode tokens / k", fontsize=16)
+    ax.set_ylabel("time/s", fontsize=16)
+    ax.tick_params(axis="x", labelsize=16)
+    ax.tick_params(axis="y", labelsize=16)
+    ax.legend(fontsize=16)
+    ax.set_title("(c) Prefill and decode time breakdown", fontsize=20, y=-0.24)
 
     # Figure configurations
     plt.savefig(
-        "results/prefill_decode_time_breakdown.pdf", format="pdf", bbox_inches="tight", dpi=400
+        "results/fig-background-pd-breakdown.pdf", format="pdf", bbox_inches="tight", dpi=400
     )
