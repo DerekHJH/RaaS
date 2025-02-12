@@ -207,6 +207,7 @@ def decode_estimate(
 def decode_topk(
     estimated_attn_score: torch.Tensor,
     iController: InferenceController,
+    layer_idx: int,
 ):
     """
     Semantics of `decode_topk`:
@@ -231,7 +232,7 @@ def decode_topk(
         estimated_attn_score,
         iController.kv_indices_without_last,
         iController.topk_dout_buffer,
-        iController.topk_dindices_buffer,
+        iController.topk_dindices_buffer[layer_idx],
         iController.topk_buf,
         page_budet,
     )

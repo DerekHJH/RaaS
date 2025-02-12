@@ -302,9 +302,9 @@ class LlamaAttention(nn.Module):
 				raas_utils.decode_topk(
 					estimated_attn_score,
 					iController,
+					self.layer_idx,
 				)
 
-				iController.update_timestamp(self.layer_idx)
 				attn_output = raas_utils.decode_sparse_attn(
 					query_states,
 					iController,
@@ -703,6 +703,8 @@ class LlamaModel(LlamaPreTrainedModel):
 				all_self_attns += (layer_outputs[1],)
 
 		self.iController.end_forward()
+		if seq_length == 1: # decode
+			self.iController.update_timestamp()
 		hidden_states = self.norm(hidden_states)
 
 		# add hidden states from the last decoder layer

@@ -72,6 +72,7 @@ class InferenceController:
         self.saved_page_num = None
         self.saved_page_index = None
         self.saved_pages = None
+        self.saved_pages_continuous = None
         # used by raas: the time stamps
         self.timestamps = None
         # breakpoint()
@@ -109,20 +110,22 @@ class InferenceController:
                 self.saved_pages.scatter_(dim=2, index=pages_ind, value=now_pages - 1)
                 self.timestamps.scatter_(dim=2, index=oldest_ind, value=torch.iinfo(torch.int32).max)
                 self.saved_page_index.scatter_(dim=2, index=oldest_ind, src=pages_ind)
+                self.saved_pages_continuous = self.saved_pages[:, :, :self.saved_page_num].sort(dim=-1).values
                 self.saved_page_num -= 1
 
 
-    def update_timestamp(self, layer_idx: int):
+    def update_timestamp(self):
         topk = self.topk_dindices_buffer
-        batch_size, K = topk.shape
-        batch_indices = torch.arange(batch_size, device=self.device).unsqueeze(1).expand(-1, K)
-        current_values = self.timestamps[layer_idx, batch_indices, topk]  # shape [batch_size, K]
+        num_layer, batch_size, K = topk.shape
+        layer_indices = torch.arange(num_layer, device=self.device).unsqueeze(1).unsqueeze(2)
+        batch_indices = torch.arange(batch_size, device=self.device).unsqueeze(0).unsqueeze(2).expand(num_layer, -1, K)
+        current_values = self.timestamps[layer_indices, batch_indices, topk]
         target_value = torch.full_like(current_values, self.kv_cache.seqlen, device=self.device)
         updated_values = torch.max(current_values, target_value)
-        self.timestamps[layer_idx, batch_indices, topk] = updated_values
+        self.timestamps[layer_indices, batch_indices, topk] = updated_values
 
     def get_saved_pages(self, layer_idx: int):
-        return self.saved_pages[layer_idx, :, :self.saved_page_num].sort(dim=-1).values
+        return self.saved_pages[layer_idx, :, :]
     
     # Prepare metadata used for inference under certain PAGE_BUDGET
     # Called multiple times for layer sensitivity
@@ -166,7 +169,7 @@ class InferenceController:
             # Allocate buffer for top-k filtering
             page_budet = min(self.inference_page_budget - 1, self.origin_page_budget // 2)
             self.topk_dout_buffer = torch.zeros((self.num_heads, page_budet), dtype=self.dtype, device=self.device)
-            self.topk_dindices_buffer = torch.zeros((self.num_heads, page_budet), dtype=torch.int32, device=self.device)
+            self.topk_dindices_buffer = torch.zeros((self.num_layers, self.num_heads, page_budet), dtype=torch.int32, device=self.device)
             self.topk_buf = torch.zeros((self.num_heads, 8192 * 2 * (2+4) // 2 // 48), dtype=self.dtype, device=self.device)
 
             self._decode_handler.begin_forward(
@@ -197,6 +200,7 @@ class InferenceController:
         self.saved_page_num = 0
         self.saved_page_index = torch.arange(self.max_kv_pages_num, dtype=torch.int64, device=self.device).repeat(self.num_layers, self.num_heads, 1)
         self.saved_pages = torch.arange(self.max_kv_pages_num, dtype=torch.int32, device=self.device).repeat(self.num_layers, self.num_heads, 1)
+        self.saved_pages_continuous = self.saved_pages[:, :, :self.saved_page_num].sort(dim=-1).values
         # used by raas: the time stamps
         self.timestamps = torch.zeros((self.num_layers, self.num_heads, self.max_kv_pages_num), dtype=torch.int32, device=self.device)
         # breakpoint()
