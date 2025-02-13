@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple
 import torch
 import math
 from transformers import DynamicCache
+from torch import nn
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +14,11 @@ class RaaSCache(DynamicCache):
     The following implementation assumes that the cache is not full at the beginning of the decoding process.
     """
 
-    def __init__(self, page_size: int, cache_budget: int, num_hidden_layers: Optional[int] = None) -> None:
+    def __init__(self, page_size: int, cache_budget: int, num_hidden_layers: Optional[int] = None, alpha: float = None) -> None:
         super().__init__(num_hidden_layers)
         self.page_size = page_size # tot number of tokens per page
         self.cache_budget = cache_budget # tot number of tokens in the cache
+        self.alpha = alpha
         self.page_budget = self.cache_budget // self.page_size # tot number of pages in the cache
         self.page_id_to_access_status: List[torch.Tensor] = []
         self.counter = 0
@@ -89,8 +91,13 @@ class RaaSCache(DynamicCache):
 
         self.counter = self._seen_tokens # Motonically increasing counter
         # Only the top-(k/2) is deemed as accessed as important pages
-        self.page_id_to_access_status[layer_idx].scatter_(-1, access_page_ids[..., :self.page_budget // 2], self.counter)
-        # TODO: First, we need to update pages with score > 0.01. Second, we need to keep all prefill stage pages.
+        if self.alpha is not None:
+            access_page_scores = torch.softmax(access_page_scores, dim=-1)
+            for i in range(access_page_ids.shape[1]): # # layers
+                self.page_id_to_access_status[layer_idx][0, i, 0, access_page_ids[0, i, 0, access_page_scores[0, i, 0] > self.alpha]] = self.counter
+            
+        else:
+            self.page_id_to_access_status[layer_idx].scatter_(-1, access_page_ids[..., :self.page_budget // 2], self.counter)
 
 
 class H2OCache(DynamicCache):

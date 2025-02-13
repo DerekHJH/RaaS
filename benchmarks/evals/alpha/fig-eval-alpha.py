@@ -11,46 +11,38 @@ from benchmarks.evals.utils import (
     model_names_map,
 )
 
-all_datasets = ["gsm8k", "aime", "math500"]
-all_models = [
-    "peiyi9979/mistral-7b-sft",
-    "Qwen/Qwen2.5-Math-7B-Instruct",
-    "agentica-org/DeepScaleR-1.5B-Preview",
-    "AIDC-AI/Marco-o1",
-]
+all_datasets = ["math500", "math500"]
+all_models = ["peiyi9979/mistral-7b-sft", "Qwen/Qwen2.5-Math-7B-Instruct"]
 all_approaches = [
     [
-        "sink-64",
-        "sink-128",
-        "sink-256",
-        "sink-512",
-        "sink-1024",
+        "raas-64-0.005",
+        "raas-128-0.005",
+        "raas-256-0.005",
+        "raas-512-0.005",
+        "raas-1024-0.005",
     ],
     [
-        "h2o-64",
-        "h2o-128",
-        "h2o-256",
-        "h2o-512",
-        "h2o-1024",
+        "raas-64-0.01",
+        "raas-128-0.01",
+        "raas-256-0.01",
+        "raas-512-0.01",
+        "raas-1024-0.01",
     ],
     [
-        "quest-64",
-        "quest-128",
-        "quest-256",
-        "quest-512",
-        "quest-1024",
+        "raas-64-0.02",
+        "raas-128-0.02",
+        "raas-256-0.02",
+        "raas-512-0.02",
+        "raas-1024-0.02",
     ],
     [
-        "raas-64",
-        "raas-128",
-        "raas-256",
-        "raas-512",
-        "raas-1024",
+        "raas-64-0.05",
+        "raas-128-0.05",
+        "raas-256-0.05",
+        "raas-512-0.05",
+        "raas-1024-0.05",
     ],
-    ["full"],
 ]
-
-markers = ["s"] + ["o"] + ["^"] + ["*"]
 
 max_y_metric = 0
 max_x_metric = 0
@@ -77,41 +69,39 @@ if __name__ == "__main__":
                         print(f"Skipping {approach_name}")
                         continue
 
-                    if "full" in approach_name:
-                        x_list = [0, max_x_metric]
-                        temp = np.mean(dataset[f"accuracy_{approach_name}"])
-                        y_list = [temp, temp]
-                        break
-
-                    x_metric = int(approach_name.split("-")[-1])
+                    x_metric = int(approach_name.split("-")[-2])
                     y_metric = np.mean(dataset[f"accuracy_{approach_name}"])
                     x_list.append(x_metric)
                     y_list.append(y_metric)
 
                 if len(x_list) == 0 or len(y_list) == 0:
-                    print(f"Skipping {approach_name}")
                     continue
 
                 max_x_metric = max(max_x_metric, max(x_list))
                 max_y_metric = max(max_y_metric, max(y_list))
 
-                if "full" in approach_name:
-                    axs[i][j].plot(
-                        x_list,
-                        y_list,
-                        label=approaches[0].split("-")[0],
-                        linewidth=3,
-                        linestyle="--",
-                    )
-                else:
-                    axs[i][j].plot(
-                        x_list,
-                        y_list,
-                        label=approaches[0].split("-")[0],
-                        marker=markers[k],
-                        markersize=15,
-                        linewidth=3,
-                    )
+                axs[i][j].plot(
+                    x_list,
+                    y_list,
+                    label="alpha=" + approaches[0].split("-")[-1],
+                    marker="*",
+                    markersize=15,
+                    linewidth=3,
+                )
+
+            # Plot full
+            path = f"../e2e/results/{dataset_name}/{last_model_name}/data.json"
+            dataset = pd.read_json(path)
+            x_list = [0, max_x_metric]
+            temp = np.mean(dataset[f"accuracy_full"])
+            y_list = [temp, temp]
+            axs[i][j].plot(
+                x_list,
+                y_list,
+                label=approaches[0].split("-")[0],
+                linewidth=3,
+                linestyle="--",
+            )
 
     # After max_x_metric and max_y_metric are determined
     max_x_metric *= 1.05
@@ -147,6 +137,4 @@ if __name__ == "__main__":
         )
 
     # Save
-    plt.savefig(
-        "results/fig-eval-acc-vs-cache-budget.pdf", format="pdf", bbox_inches="tight", dpi=400
-    )
+    plt.savefig("results/fig-eval-alpha.pdf", format="pdf", bbox_inches="tight", dpi=400)
