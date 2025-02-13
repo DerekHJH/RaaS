@@ -90,6 +90,7 @@ class RaaSCache(DynamicCache):
         self.counter = self._seen_tokens # Motonically increasing counter
         # Only the top-(k/2) is deemed as accessed as important pages
         self.page_id_to_access_status[layer_idx].scatter_(-1, access_page_ids[..., :self.page_budget // 2], self.counter)
+        # TODO: First, we need to update pages with score > 0.01. Second, we need to keep all prefill stage pages.
 
 
 class H2OCache(DynamicCache):

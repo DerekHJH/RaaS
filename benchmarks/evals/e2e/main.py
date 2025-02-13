@@ -42,6 +42,8 @@ class EvalConfigs:
             "peiyi9979/mistral-7b-sft",
             "AIDC-AI/Marco-o1",
             "Qwen/Qwen2.5-Math-7B-Instruct",
+            "agentica-org/DeepScaleR-1.5B-Preview",
+            "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
         ]
     )
     all_approaches: List[str] = field(
@@ -432,8 +434,10 @@ class EvalEngine:
             # Decode autoregressively
             decode_time = []
             for num_decode in range(
-                pipe.model.config.max_position_embeddings - 512
-            ):  # Reserve 1024 tokens for the prompt
+                min(
+                    pipe.model.config.max_position_embeddings - 512, 10 * 2**10
+                )  # Less than 10k to speed up benchmarking
+            ):  # Reserve 512 tokens for the prompt
 
                 input_ids = next_token_id
                 attention_mask = torch.cat(

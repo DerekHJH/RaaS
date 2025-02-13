@@ -12,7 +12,7 @@ from benchmarks.evals.utils import (
 )
 
 all_datasets = ["gsm8k", "aime", "math500"]
-all_models = ["peiyi9979/mistral-7b-sft", "Qwen/Qwen2.5-Math-7B-Instruct"]
+all_models = ["peiyi9979/mistral-7b-sft", "Qwen/Qwen2.5-Math-7B-Instruct", "AIDC-AI/Marco-o1"]
 all_approaches = [
     [
         "sink-64",
@@ -54,7 +54,7 @@ max_x_metric = 0
 if __name__ == "__main__":
 
     fig, axs = plt.subplots(
-        len(all_datasets), len(all_models), figsize=(6 * len(all_models), 5 * len(all_datasets))
+        len(all_datasets), len(all_models), figsize=(10 * len(all_models), 7 * len(all_datasets))
     )
 
     for i, dataset_name in enumerate(all_datasets):
@@ -74,13 +74,18 @@ if __name__ == "__main__":
 
                     if "full" in approach_name:
                         x_list = [0, max_x_metric]
-                        y_list = [0, np.mean(dataset[f"accuracy_{approach_name}"])]
+                        temp = np.mean(dataset[f"accuracy_{approach_name}"])
+                        y_list = [temp, temp]
                         break
 
                     x_metric = int(approach_name.split("-")[-1])
                     y_metric = np.mean(dataset[f"accuracy_{approach_name}"])
                     x_list.append(x_metric)
                     y_list.append(y_metric)
+
+                if len(x_list) == 0 or len(y_list) == 0:
+                    print(f"Skipping {approach_name}")
+                    continue
 
                 max_x_metric = max(max_x_metric, max(x_list))
                 max_y_metric = max(max_y_metric, max(y_list))
@@ -110,10 +115,10 @@ if __name__ == "__main__":
         for j, model_name in enumerate(all_models):
             axs[i][j].set_xlim(left=0, right=max_x_metric)
             axs[i][j].set_ylim(bottom=0, top=max_y_metric)
-            axs[i][j].tick_params(axis="x", labelsize=14)
-            axs[i][j].tick_params(axis="y", labelsize=14)
+            axs[i][j].tick_params(axis="x", labelsize=20)
+            axs[i][j].tick_params(axis="y", labelsize=20)
 
-    axs[0][0].legend(loc="upper center", bbox_to_anchor=(1, 1.3), ncol=6, fontsize=12)
+    axs[0][0].legend(loc="upper center", bbox_to_anchor=(1, 1.5), ncol=6, fontsize=20)
 
     # Draw model names
     for j, model_name in enumerate(all_models):
@@ -126,7 +131,7 @@ if __name__ == "__main__":
     for i, dataset_name in enumerate(all_datasets):
         axs[i][0].set_ylabel(dataset_metrics_map[dataset_name], fontsize=20)
         axs[i][0].text(
-            -0.3,
+            -0.4,
             0.5,
             dataset_names_map[dataset_name],
             fontsize=20,
@@ -138,5 +143,5 @@ if __name__ == "__main__":
 
     # Save
     plt.savefig(
-        "results/fig-eval-acc-vs-cache-budget.pdf", format="pdf", bbox_inches="tight", dpi=600
+        "results/fig-eval-acc-vs-cache-budget.pdf", format="pdf", bbox_inches="tight", dpi=400
     )

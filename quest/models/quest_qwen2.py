@@ -191,7 +191,8 @@ def forward(
             quantized_weight, torch.tensor(torch.finfo(quantized_weight.dtype).min)
         )
 
-    cache_budget = min(kv_seq_len, self.cache_budget)
+    # cache_budget = min(kv_seq_len, self.cache_budget)
+    cache_budget = self.cache_budget  # We do not care about the length of the cache
 
     attn_weights_for_selection = quantized_weight
 
