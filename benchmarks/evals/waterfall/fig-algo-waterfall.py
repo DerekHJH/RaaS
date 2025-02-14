@@ -34,7 +34,7 @@ if __name__ == "__main__":
         fig, axs = plt.subplots(1, 1, figsize=(5, 4))
 
         sns.heatmap(
-            full_attentions[layer_id][0, head_id, ...].cpu().float()[:360, :360],
+            full_attentions[layer_id][0, head_id, ...].cpu().float(),
             cmap="viridis",
             ax=axs,
             cbar=False,

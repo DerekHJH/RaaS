@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Tuple
+from typing import List
 
 import seaborn as sns
 import torch
@@ -8,19 +8,16 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 
 from benchmarks.evals.waterfall.main import MarkovConfigs
-from benchmarks.evals.waterfall.plot_attention_map import square_attention
 
 logger = logging.getLogger(__name__)
 
-configs = MarkovConfigs(dataset="math500", model="peiyi9979/mistral-7b-sft", approach="full")
-cache_budget = 128
-page_size = 16
+configs = MarkovConfigs(dataset="math500", model="Qwen/Qwen2.5-Math-7B-Instruct", approach="full")
 
 
 if __name__ == "__main__":
 
-    attentions: Tuple[Tuple[torch.Tensor]] = torch.load(
-        os.path.join(configs.result_path, "attentions.pt")
+    full_attentions: List[torch.Tensor] = torch.load(
+        os.path.join(configs.result_path, "full_attentions.pt")
     )
     configs.head_ids = [0]
     fig, axs = plt.subplots(len(configs.layer_ids), 1, figsize=(20, 4 * len(configs.layer_ids)))
