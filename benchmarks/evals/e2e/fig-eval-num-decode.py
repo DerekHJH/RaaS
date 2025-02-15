@@ -12,10 +12,12 @@ from benchmarks.evals.utils import (
     model_names_map,
 )
 
-all_datasets = ["gsm8k", "aime", "math500"]
+all_datasets = ["gsm8k", "math500", "aime"]
 all_models = [
     "peiyi9979/mistral-7b-sft",
     "Qwen/Qwen2.5-Math-7B-Instruct",
+    "AIDC-AI/Marco-o1",
+    "agentica-org/DeepScaleR-1.5B-Preview",
 ]
 all_approaches = [
     [
