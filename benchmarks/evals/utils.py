@@ -45,3 +45,12 @@ dataset_metrics_map = {
     "aime": "Accuracy",
     "gsm8k": "Accuracy",
 }
+
+
+approach_name_map = {
+    "full": "Dense",
+    "sink": "Sink",
+    "h2o": "H2O",
+    "quest": "Quest",
+    "raas": "RaaS",
+}

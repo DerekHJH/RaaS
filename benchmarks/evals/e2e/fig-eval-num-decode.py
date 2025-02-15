@@ -6,6 +6,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from benchmarks.evals.utils import (
+    approach_name_map,
     dataset_metrics_map,
     dataset_names_map,
     model_names_map,
@@ -15,8 +16,6 @@ all_datasets = ["gsm8k", "aime", "math500"]
 all_models = [
     "peiyi9979/mistral-7b-sft",
     "Qwen/Qwen2.5-Math-7B-Instruct",
-    "agentica-org/DeepScaleR-1.5B-Preview",
-    "AIDC-AI/Marco-o1",
 ]
 all_approaches = [
     [
@@ -52,8 +51,8 @@ all_approaches = [
 
 markers = ["s"] + ["o"] + ["^"] + ["*"]
 
-max_y_metric = 0
-max_x_metric = 0
+max_y_metric = 1
+max_x_metric = 1024
 
 
 if __name__ == "__main__":
@@ -73,18 +72,18 @@ if __name__ == "__main__":
                 x_list = []
                 y_list = []
                 for approach_name in approaches:
-                    if f"accuracy_{approach_name}" not in dataset.columns:
+                    if f"num_decode_{approach_name}" not in dataset.columns:
                         print(f"Skipping {approach_name}")
                         continue
 
                     if "full" in approach_name:
                         x_list = [0, max_x_metric]
-                        temp = np.mean(dataset[f"accuracy_{approach_name}"])
+                        temp = np.mean(dataset[f"num_decode_{approach_name}"])
                         y_list = [temp, temp]
                         break
 
                     x_metric = int(approach_name.split("-")[-1])
-                    y_metric = np.mean(dataset[f"accuracy_{approach_name}"])
+                    y_metric = np.mean(dataset[f"num_decode_{approach_name}"])
                     x_list.append(x_metric)
                     y_list.append(y_metric)
 
@@ -99,7 +98,7 @@ if __name__ == "__main__":
                     axs[i][j].plot(
                         x_list,
                         y_list,
-                        label=approaches[0].split("-")[0],
+                        label=approach_name_map[approaches[0].split("-")[0]],
                         linewidth=3,
                         linestyle="--",
                     )
@@ -107,7 +106,7 @@ if __name__ == "__main__":
                     axs[i][j].plot(
                         x_list,
                         y_list,
-                        label=approaches[0].split("-")[0],
+                        label=approach_name_map[approaches[0].split("-")[0]],
                         marker=markers[k],
                         markersize=15,
                         linewidth=3,
@@ -123,7 +122,7 @@ if __name__ == "__main__":
             axs[i][j].tick_params(axis="x", labelsize=20)
             axs[i][j].tick_params(axis="y", labelsize=20)
 
-    axs[0][0].legend(loc="upper center", bbox_to_anchor=(1, 1.5), ncol=6, fontsize=20)
+    axs[0][0].legend(loc="upper center", bbox_to_anchor=(1, 1.3), ncol=6, fontsize=20)
 
     # Draw model names
     for j, model_name in enumerate(all_models):
@@ -136,7 +135,7 @@ if __name__ == "__main__":
     for i, dataset_name in enumerate(all_datasets):
         axs[i][0].set_ylabel(dataset_metrics_map[dataset_name], fontsize=20)
         axs[i][0].text(
-            -0.4,
+            -0.3,
             0.5,
             dataset_names_map[dataset_name],
             fontsize=20,
@@ -147,6 +146,4 @@ if __name__ == "__main__":
         )
 
     # Save
-    plt.savefig(
-        "results/fig-eval-acc-vs-cache-budget.pdf", format="pdf", bbox_inches="tight", dpi=400
-    )
+    plt.savefig("results/fig-eval-num-decode.pdf", format="pdf", bbox_inches="tight", dpi=400)
