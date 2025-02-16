@@ -2,10 +2,10 @@
 dataset="math500"
 model="Qwen/Qwen2.5-Math-7B-Instruct"
 # Full
-all_approaches=("full" "sink-64" "sink-128" "sink-256" "sink-512" "sink-1024" "h2o-64" "h2o-128" "h2o-256" "h2o-512" "h2o-1024" "raas-64" "raas-128" "raas-256" "raas-512" "raas-1024" "quest-64" "quest-128" "quest-256" "quest-512" "quest-1024")
+# all_approaches=("full" "sink-64" "sink-128" "sink-256" "sink-512" "sink-1024" "h2o-64" "h2o-128" "h2o-256" "h2o-512" "h2o-1024" "raas-64" "raas-128" "raas-256" "raas-512" "raas-1024" "quest-64" "quest-128" "quest-256" "quest-512" "quest-1024")
 # For marco o1, which already finishes "full", we still have math500 and aime not run
 # all_approaches=("sink-64" "sink-128" "sink-256" "sink-512" "sink-1024" "h2o-64" "h2o-128" "h2o-256" "h2o-512" "h2o-1024" "quest-64" "quest-128" "quest-256" "quest-512" "quest-1024" "raas-64" "raas-128" "raas-256" "raas-512" "raas-1024")
-# all_approaches=("quest-64" "quest-128" "quest-256" "quest-512" "quest-1024" "raas-64" "raas-128" "raas-256" "raas-512" "raas-1024")
+all_approaches=("h2o-1024" "raas-512" "quest-512" "h2o-512")
 
 # Take the arguments from the command line
 if [ $# -eq 0 ]; then

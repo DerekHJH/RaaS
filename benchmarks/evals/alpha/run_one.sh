@@ -1,7 +1,8 @@
 
 dataset="math500"
-model="Qwen/Qwen2.5-Math-7B-Instruct"
-all_approaches=("raas-64-0.005" "raas-128-0.005" "raas-256-0.005" "raas-512-0.005" "raas-1024-0.005" "raas-64-0.01" "raas-128-0.01" "raas-256-0.01" "raas-512-0.01" "raas-1024-0.01" "raas-64-0.02" "raas-128-0.02" "raas-256-0.02" "raas-512-0.02" "raas-1024-0.02" "raas-64-0.05" "raas-128-0.05" "raas-256-0.05" "raas-512-0.05" "raas-1024-0.05")
+model="peiyi9979/mistral-7b-sft"
+# all_approaches=("raas-64-0.005" "raas-128-0.005" "raas-256-0.005" "raas-512-0.005" "raas-1024-0.005" "raas-64-0.01" "raas-128-0.01" "raas-256-0.01" "raas-512-0.01" "raas-1024-0.01" "raas-64-0.02" "raas-128-0.02" "raas-256-0.02" "raas-512-0.02" "raas-1024-0.02" "raas-64-0.05" "raas-128-0.05" "raas-256-0.05" "raas-512-0.05" "raas-1024-0.05")
+all_approaches=("raas-256-0.01" "raas-256-0.02" "raas-256-0.05")
 
 # Take the arguments from the command line
 if [ $# -eq 0 ]; then
