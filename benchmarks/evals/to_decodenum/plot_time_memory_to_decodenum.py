@@ -31,9 +31,10 @@ all_approaches = [
     "full_optimized",
 ]
 def get_label(s: str):
-    return s.replace("_optimized", "")
+    return s.replace("_optimized", "").replace("raas", "RaaS").replace("quest", "Quest").replace("full", "Dense")
 
 if __name__ == "__main__":
+    label_fontsize = 12
     fig, axs = plt.subplots(1, 2, figsize=(6, 2.7))
     plt.subplots_adjust(wspace=0.3)
 
@@ -59,8 +60,8 @@ if __name__ == "__main__":
         axs[0].plot(xs, ys, label=get_label(approach))
 
     axs[0].legend()
-    axs[0].set_xlabel("# decode tokens / k")
-    axs[0].set_ylabel("JCT / s")
+    axs[0].set_xlabel("# decode tokens / k", fontsize=label_fontsize)
+    axs[0].set_ylabel("JCT / s", fontsize=label_fontsize)
 
     # draw the memory to decode_num
 
@@ -83,8 +84,8 @@ if __name__ == "__main__":
             ys.append(np.mean([bytes_per_token * memory_token[j][i] for j in range(dp)]) / 1024 ** 3 + bonus)
         axs[1].plot(xs, ys, label=get_label(approach))
     
-    axs[1].set_xlabel("# decode tokens / k")
-    axs[1].set_ylabel("KV Cache / GB")
+    axs[1].set_xlabel("# decode tokens / k", fontsize=label_fontsize)
+    axs[1].set_ylabel("KV Cache / GB", fontsize=label_fontsize)
         
 
 
