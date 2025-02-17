@@ -23,6 +23,9 @@ if __name__ == "__main__":
     full_attentions: List[torch.Tensor] = torch.load(
         os.path.join(configs.result_path, "full_attentions.pt")
     )
+    import pdb
+
+    pdb.set_trace()
 
     for layer_id, head_id in important_layer_head_pairs:
 
