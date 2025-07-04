@@ -87,9 +87,10 @@ class EvalConfigs:
     )
     all_decode_nums = [64, 128, 256, 512, 1024, 2048, 3072, 4096, 5120, 6144, 7168, 8192]
 
+    batch_size: int = 1
     model_config: AutoConfig = field(init=False)
-
     seed: int = 42
+
     result_path: str = "results"
 
     @classmethod
@@ -102,6 +103,7 @@ class EvalConfigs:
         parser.add_argument("--dataset", type=str, required=True)
         parser.add_argument("--model", type=str, required=True)
         parser.add_argument("--approach", type=str, required=True)
+        parser.add_argument("--batch-size", type=int, default=1)
         parser.add_argument("--seed", type=int, default=42)
 
         # Parse the arguments.
@@ -433,8 +435,11 @@ class EvalEngine:
         #     extended_prompt = prompt
         # inputs = pipe.tokenizer(extended_prompt, return_tensors="pt", ).to("cuda:0")
         pipe.tokenizer.pad_token = pipe.tokenizer.eos_token
+        batch_size = self.configs.batch_size
         inputs = pipe.tokenizer(
-            "demo",
+            [
+                "demo" for _ in range(batch_size)
+            ],
             padding="max_length",
             max_length=128,
             return_tensors="pt"
@@ -481,7 +486,7 @@ class EvalEngine:
             prefill_time = time.perf_counter() - start_time
 
             next_token_id = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
-            generated_content = [next_token_id.item()]
+            # generated_content = [next_token_id.item()]
 
             # Decode autoregressively
             decode_time = []
@@ -505,7 +510,7 @@ class EvalEngine:
 
                 # Produece the next token
                 next_token_id = outputs.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
-                generated_content += [next_token_id.item()]
+                # generated_content += [next_token_id.item()]
 
                 # # ignore the eos token
                 # if next_token_id.item() == pipe.tokenizer.eos_token_id:
@@ -531,8 +536,8 @@ class EvalEngine:
 
         if "optimized" in self.configs.approach:
             pipe.model.reset_model()
-        model_output = pipe.tokenizer.decode(generated_content, skip_special_tokens=True)
-        return model_output, TTFT, JCT, TPOT, num_decode, JCT_decode, TPOT_decode, memory_token_decode
+        # model_output = pipe.tokenizer.decode(generated_content, skip_special_tokens=True)
+        return "", TTFT, JCT, TPOT, num_decode, JCT_decode, TPOT_decode, memory_token_decode
 
     def generate_presentation(self):
         """

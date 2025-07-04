@@ -235,13 +235,16 @@ class LlamaAttention(nn.Module):
         iController: Optional[InferenceController] = None,
 		**kwargs,
 	) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
-		bsz, q_len, _ = hidden_states.size()
+		_bsz, q_len, _ = hidden_states.size()
+		bsz = 1
 
-		assert bsz == 1, "RaaSAttention only supports batch size 1."
-		ori_dtype = hidden_states.dtype
-		query_states = self.q_proj(hidden_states).to(torch.float16)
-		key_states = self.k_proj(hidden_states).to(torch.float16)
-		value_states = self.v_proj(hidden_states).to(torch.float16)
+        # only get the first few tokens be calculated
+		# assert bsz == 1, "RaaSAttention only supports batch size 1."
+		hidden_states_first = hidden_states[:1]
+		ori_dtype = hidden_states_first.dtype
+		query_states = self.q_proj(hidden_states_first).to(torch.float16)
+		key_states = self.k_proj(hidden_states_first).to(torch.float16)
+		value_states = self.v_proj(hidden_states_first).to(torch.float16)
 
 		# use -1 to infer num_heads and num_key_value_heads as they may vary if tensor parallel is used
         # Not transposed for Append kv cache NHD layout
@@ -325,7 +328,10 @@ class LlamaAttention(nn.Module):
 
 		attn_output = attn_output.reshape(bsz, q_len, -1).to(ori_dtype)
 
+
 		attn_output = self.o_proj(attn_output)
+		# concate attn_output with hidden_states[1:, ...]
+		attn_output = torch.cat([attn_output, hidden_states[1:]], dim=0)
 
 		if not output_attentions:
 			attn_weights = None
@@ -383,7 +389,7 @@ class LlamaDecoderLayer(nn.Module):
 		"""
 		residual = hidden_states
 
-		hidden_states = self.input_layernorm(hidden_states)
+		hidden_states[:1] = self.input_layernorm(hidden_states[:1])
 
 		# Self Attention
 		hidden_states, self_attn_weights, present_key_value = self.self_attn(
@@ -402,7 +408,7 @@ class LlamaDecoderLayer(nn.Module):
 
 		# Fully Connected
 		residual = hidden_states
-		hidden_states = self.post_attention_layernorm(hidden_states)
+		hidden_states[:1] = self.post_attention_layernorm(hidden_states[:1])
 		hidden_states = self.mlp(hidden_states)
 		hidden_states = residual + hidden_states
 
@@ -705,7 +711,7 @@ class LlamaModel(LlamaPreTrainedModel):
 		self.iController.end_forward()
 		if seq_length == 1: # decode
 			self.iController.update_timestamp()
-		hidden_states = self.norm(hidden_states)
+		hidden_states[:1] = self.norm(hidden_states[:1])
 
 		# add hidden states from the last decoder layer
 		if output_hidden_states:

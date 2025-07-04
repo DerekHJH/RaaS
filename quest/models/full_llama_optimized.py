@@ -300,11 +300,12 @@ class LlamaAttention(nn.Module):
 		position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # will become mandatory in v4.46
 		**kwargs,
 	) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
-		bsz, q_len, _ = hidden_states.size()
-
-		query_states = self.q_proj(hidden_states)
-		key_states = self.k_proj(hidden_states)
-		value_states = self.v_proj(hidden_states)
+		_bsz, q_len, _ = hidden_states.size()
+		bsz = 1
+		hidden_states_first = hidden_states[:1]
+		query_states = self.q_proj(hidden_states_first)
+		key_states = self.k_proj(hidden_states_first)
+		value_states = self.v_proj(hidden_states_first)
 
 		# use -1 to infer num_heads and num_key_value_heads as they may vary if tensor parallel is used
 		query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
@@ -356,6 +357,7 @@ class LlamaAttention(nn.Module):
 		attn_output = attn_output.reshape(bsz, q_len, -1)
 
 		attn_output = self.o_proj(attn_output)
+		attn_output = torch.cat([attn_output, hidden_states[1:]], dim=0)
 
 		if not output_attentions:
 			attn_weights = None
@@ -398,11 +400,12 @@ class LlamaFlashAttention2(LlamaAttention):
 
 		output_attentions = False
 
-		bsz, q_len, _ = hidden_states.size()
-
-		query_states = self.q_proj(hidden_states)
-		key_states = self.k_proj(hidden_states)
-		value_states = self.v_proj(hidden_states)
+		_bsz, q_len, _ = hidden_states.size()
+		bsz = 1
+		hidden_states_first = hidden_states[:1]
+		query_states = self.q_proj(hidden_states_first)
+		value_states = self.v_proj(hidden_states_first)
+		key_states = self.k_proj(hidden_states_first)
 
 		# Flash attention requires the input to have the shape
 		# batch_size x seq_length x head_dim x hidden_dim
@@ -469,9 +472,9 @@ class LlamaFlashAttention2(LlamaAttention):
 			query_states,
 			key_states,
 			value_states,
-			attention_mask,
+			attention_mask[:1],
 			q_len,
-			position_ids=position_ids,
+			position_ids=position_ids[:1],
 			dropout=dropout_rate,
 			sliding_window=getattr(self, "sliding_window", None),
 			use_top_left_mask=self._flash_attn_uses_top_left_mask,
@@ -481,6 +484,7 @@ class LlamaFlashAttention2(LlamaAttention):
 
 		attn_output = attn_output.reshape(bsz, q_len, -1).contiguous()
 		attn_output = self.o_proj(attn_output)
+		attn_output = torch.cat([attn_output, hidden_states[1:]], dim=0)
 
 		if not output_attentions:
 			attn_weights = None

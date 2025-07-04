@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 import logging
+
 logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
@@ -30,8 +31,27 @@ all_approaches = [
     "quest_optimized-1024",
     "full_optimized",
 ]
+
+
+def get_line_style(approach: str) -> str | tuple[str, tuple[float, tuple[float, float]]]:
+    idx = all_approaches.index(approach)
+    return [
+        (0, (3.7, 1.6)),
+        (2.5, (3.7, 1.6)),
+        (0.2, (1.5, 1.65)),
+        "--",
+    ][idx]
+    # return '-'
+
+
 def get_label(s: str):
-    return s.replace("_optimized", "").replace("raas", "RaaS").replace("quest", "Quest").replace("full", "Dense")
+    return (
+        s.replace("_optimized", "")
+        .replace("raas", "RaaS")
+        .replace("quest", "Quest")
+        .replace("full", "Dense")
+    )
+
 
 if __name__ == "__main__":
     label_fontsize = 12
@@ -41,7 +61,7 @@ if __name__ == "__main__":
     last_model_name = model.split("/")[-1]
     path = f"results/{dataset}/{last_model_name}/data.json"
     dataset = pd.read_json(path)
-    
+
     # draw the time to decode_num
 
     for approach in all_approaches:
@@ -53,11 +73,13 @@ if __name__ == "__main__":
             continue
         JCT = dataset[x_key]
         dp = len(JCT)
-        bonus = 2 if approach == "raas_optimized-1024" else 0 # to show the nearly overlapped lines more clearly
+        # bonus = 2 if approach == "raas_optimized-1024" else 0 # to show the nearly overlapped lines more clearly
         for i in JCT[0].keys():
             xs.append(int(i) / 1024)
-            ys.append(np.mean([JCT[j][i] for j in range(dp)]) + bonus)
-        axs[0].plot(xs, ys, label=get_label(approach))
+            ys.append(np.mean([JCT[j][i] for j in range(dp)]))
+        axs[0].plot(
+            xs, ys, label=get_label(approach), linestyle=get_line_style(approach)
+        )
 
     axs[0].legend()
     axs[0].set_xlabel("# decode tokens / k", fontsize=label_fontsize)
@@ -78,17 +100,20 @@ if __name__ == "__main__":
             continue
         bytes_per_token = dataset[bytes_per_token_key]
         memory_token = dataset[memory_token_key]
-        bonus = 0.01 if approach == "quest_optimized-1024" else 0
+        bonus = 0.003 if approach == "quest_optimized-1024" else 0
         for i in memory_token[0].keys():
             xs.append(int(i) / 1024)
-            ys.append(np.mean([bytes_per_token * memory_token[j][i] for j in range(dp)]) / 1024 ** 3 + bonus)
-        axs[1].plot(xs, ys, label=get_label(approach))
-    
+            ys.append(
+                np.mean([bytes_per_token * memory_token[j][i] for j in range(dp)])
+                / 1024**3
+                + bonus
+            )
+        axs[1].plot(
+            xs, ys, label=get_label(approach), linestyle=get_line_style(approach)
+        )
+
     axs[1].set_xlabel("# decode tokens / k", fontsize=label_fontsize)
     axs[1].set_ylabel("KV Cache / GB", fontsize=label_fontsize)
-        
-
-
 
     # Save
 
