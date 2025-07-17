@@ -1,8 +1,8 @@
 import torch
 from typing import Optional
 
-import quest._kernels as _kernels
-from quest.utils.utils import TensorLayout
+import quest._raas_kernels as _kernels
+from quest.raas_utils.utils import TensorLayout
 
 def _check_kv_layout(kv_layout: str):
     if not hasattr(TensorLayout, kv_layout):

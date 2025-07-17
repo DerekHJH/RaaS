@@ -40,7 +40,10 @@ make -j
 4. Build end-to-end operators with PyBind
 ```
 # This will automatically build and link the operators
-cd quest/ops
+cd quest/quest-ops
+bash setup.sh
+cd -
+cd quest/raas-ops
 bash setup.sh
 ```
 

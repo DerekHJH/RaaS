@@ -1,7 +1,7 @@
 # This file is modified from Punica Project
 # Check ref: https://github.com/punica-ai/punica
 
-from quest.utils.utils import TensorLayout
+from quest.raas_utils.utils import TensorLayout
 import torch
 
 class KvPool:
@@ -60,7 +60,8 @@ class KvPool:
     assert 0 <= idx < self.capacity
     assert idx not in self._free
     self._free.add(idx)
-
+  def arrange(self):
+    self._free = set(range(self.capacity))
 
 class KvCache:
   """Key-value cache for one sequence."""
@@ -130,4 +131,5 @@ class KvCache:
     self._seqlen = 0
     for idx in self._indicies:
       self._pool.free_block(idx)
+    self._pool.arrange()
     self._indicies.clear()

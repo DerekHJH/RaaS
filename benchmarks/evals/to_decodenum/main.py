@@ -6,7 +6,7 @@ import time
 from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import numpy as np
 import torch
@@ -33,7 +33,7 @@ class EvalConfigs:
     dataset: str
     model: str
     approach: str
-    tot_num_data: int = 200
+    tot_num_data: int = 5 # used as repeat
     all_datasets: List[str] = field(
         default_factory=lambda: ["math500", "aime", "gsm8k"]
     )  # Fixed mutable default
@@ -42,8 +42,6 @@ class EvalConfigs:
             "peiyi9979/mistral-7b-sft",
             "AIDC-AI/Marco-o1",
             "Qwen/Qwen2.5-Math-7B-Instruct",
-            "agentica-org/DeepScaleR-1.5B-Preview",
-            "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
         ]
     )
     all_approaches: List[str] = field(
@@ -87,10 +85,12 @@ class EvalConfigs:
             "raas_optimized-1024",
         ]
     )
+    all_decode_nums = [64, 128, 256, 512, 1024, 2048, 3072, 4096, 5120, 6144, 7168, 8192]
 
+    batch_size: int = 1
     model_config: AutoConfig = field(init=False)
-
     seed: int = 42
+
     result_path: str = "results"
 
     @classmethod
@@ -103,6 +103,7 @@ class EvalConfigs:
         parser.add_argument("--dataset", type=str, required=True)
         parser.add_argument("--model", type=str, required=True)
         parser.add_argument("--approach", type=str, required=True)
+        parser.add_argument("--batch-size", type=int, default=1)
         parser.add_argument("--seed", type=int, default=42)
 
         # Parse the arguments.
@@ -217,6 +218,7 @@ class EvalEngine:
                     device_map="cuda:0",
                     trust_remote_code=True,
                     torch_dtype=torch.float16, # Use float16 for optimized version
+                    attn_implementation="flash_attention_2",
                 )
             elif "h2o" in approach_name:
                 from transformers import LlamaForCausalLM
@@ -245,6 +247,7 @@ class EvalEngine:
                     {
                         "cache_budget": int(approach_name.split("-")[-1]),
                         "page_size": 16,  # Fixed as stated in the paper
+                        "max_seq_len": 8192 + 1024,
                     },
                 )
             elif "quest" in approach_name and not optimized:
@@ -276,6 +279,7 @@ class EvalEngine:
                     {
                         "cache_budget": int(approach_name.split("-")[-1]),
                         "page_size": 16,  # Fixed as stated in the paper
+                        "max_seq_len": 8192 + 1024,
                     },
                 )
             elif "raas" in approach_name and not optimized:
@@ -368,33 +372,81 @@ class EvalEngine:
         logger.info("Run the inference. This might take a long time... Good luck")
         results = defaultdict(list)
         for i, (prompt, answer) in tenumerate(dataset, desc="dataset", leave=True):
-            model_output, TTFT, JCT, TPOT, num_decode = self.test_model(pipe, prompt, answer)
-            results[f"output_{self.configs.approach}"].append(model_output)
+            (
+                model_output,
+                TTFT,
+                JCT,
+                TPOT,
+                num_decode,
+                JCT_decode,
+                TPOT_decode,
+                memory_token_decode
+            ) = self.test_model(pipe, prompt, answer)
+            # results[f"output_{self.configs.approach}"].append(model_output)
             results[f"TTFT_{self.configs.approach}"].append(TTFT)
             results[f"JCT_{self.configs.approach}"].append(JCT)
             results[f"TPOT_{self.configs.approach}"].append(TPOT)
             results[f"num_decode_{self.configs.approach}"].append(num_decode)
+            results[f"JCT_decode_{self.configs.approach}"].append(JCT_decode)
+            results[f"TPOT_decode_{self.configs.approach}"].append(TPOT_decode)
+            results[f"bytes_per_token_{self.configs.approach}"].append(self.get_kv_per_token(pipe.model))
+            results[f"memory_token_decode_{self.configs.approach}"].append(memory_token_decode)
         dataset.update(results)
         dataset.save_dataset(self.configs.result_path)
 
         return dataset
 
+    def get_kv_per_token(self, model: AutoModelForCausalLM) -> int:
+        config: AutoConfig = model.config
+
+        hidden_size = config.hidden_size
+        num_attention_heads = config.num_attention_heads
+        num_hidden_layers = config.num_hidden_layers
+
+        num_key_value_heads = getattr(config, "num_key_value_heads", num_attention_heads)
+
+        head_dim = hidden_size // num_attention_heads
+
+        per_layer_token_param = 2 * head_dim * num_key_value_heads
+
+        per_token_param = per_layer_token_param * num_hidden_layers
+
+        bytes_per_token = per_token_param * 2  # for float16
+    
+        return bytes_per_token
+
+
+    
+
     def test_model(
         self, pipe: Pipeline, prompt: str, answer: str
-    ) -> Tuple[str, float, float, float, int]:
+    ) -> Tuple[str, float, float, float, int, Dict, Dict, Dict]:
+        
 
+        # test the time
         torch.cuda.empty_cache()
         # Prepare the input
-        try:
-            extended_prompt = pipe.tokenizer.apply_chat_template(
-                [{"role": "user", "content": prompt}], tokenize=False, add_generation_prompt=True
-            )
-        except Exception as e:
-            logger.debug(f"No chat template found. Using the prompt as is.")
-            extended_prompt = prompt
-        inputs = pipe.tokenizer(extended_prompt, return_tensors="pt").to("cuda:0")
+        # try:
+        #     extended_prompt = pipe.tokenizer.apply_chat_template(
+        #         [{"role": "user", "content": prompt}], tokenize=False, add_generation_prompt=True
+        #     )
+        # except Exception as e:
+        #     logger.debug(f"No chat template found. Using the prompt as is.")
+        #     extended_prompt = prompt
+        # inputs = pipe.tokenizer(extended_prompt, return_tensors="pt", ).to("cuda:0")
+        pipe.tokenizer.pad_token = pipe.tokenizer.eos_token
+        batch_size = self.configs.batch_size
+        inputs = pipe.tokenizer(
+            [
+                "demo" for _ in range(batch_size)
+            ],
+            padding="max_length",
+            max_length=128,
+            return_tensors="pt"
+        ).to("cuda:0")
         input_ids, attention_mask = inputs["input_ids"], inputs["attention_mask"]
         cache_position = torch.arange(input_ids.shape[1], dtype=torch.int64, device="cuda:0")
+        prompt_length = input_ids.shape[1]
 
         # Initialize the cache
         if self.configs.approach in ["full", "full_optimized"]:
@@ -415,6 +467,11 @@ class EvalEngine:
 
             cache_budget = int(self.configs.approach.split("-")[-1])
             past_key_values = RaaSCache(page_size=16, cache_budget=cache_budget)
+        
+        JCT_decode = defaultdict(float)
+        TPOT_decode = defaultdict(float)
+        memory_token_decode = defaultdict(int)
+
         with torch.no_grad():
 
             # Prefill
@@ -429,16 +486,12 @@ class EvalEngine:
             prefill_time = time.perf_counter() - start_time
 
             next_token_id = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
-            generated_content = [next_token_id.item()]
+            # generated_content = [next_token_id.item()]
 
             # Decode autoregressively
             decode_time = []
-            for num_decode in range(
-                min(
-                    pipe.model.config.max_position_embeddings - 512, 10 * 2**10
-                )  # Less than 10k to speed up benchmarking
-            ):  # Reserve 512 tokens for the prompt
-
+            max_decode_num = max(EvalConfigs.all_decode_nums)
+            for num_decode in range(1, max_decode_num + 1):
                 input_ids = next_token_id
                 attention_mask = torch.cat(
                     [attention_mask, attention_mask.new_ones((attention_mask.shape[0], 1))], dim=-1
@@ -457,10 +510,25 @@ class EvalEngine:
 
                 # Produece the next token
                 next_token_id = outputs.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
-                generated_content += [next_token_id.item()]
+                # generated_content += [next_token_id.item()]
 
-                if next_token_id.item() == pipe.tokenizer.eos_token_id:
-                    break
+                # # ignore the eos token
+                # if next_token_id.item() == pipe.tokenizer.eos_token_id:
+                #     break
+                if num_decode in EvalConfigs.all_decode_nums:
+                    JCT_decode[num_decode] = prefill_time + np.sum(decode_time)
+                    TPOT_decode[num_decode] = np.sum(decode_time) / num_decode
+                    
+                    # calculate the space
+                    approach = self.configs.approach
+                    if "raas" in approach:
+                        memory_token = min(cache_budget, prompt_length + num_decode)
+                    elif "sink" in approach:
+                        memory_token = min(4 + cache_budget, prompt_length + num_decode)
+                    else: # full, quest
+                        memory_token = prompt_length + num_decode
+                    memory_token_decode[num_decode] = memory_token
+
 
             TTFT = prefill_time
             JCT = prefill_time + np.sum(decode_time)
@@ -468,8 +536,8 @@ class EvalEngine:
 
         if "optimized" in self.configs.approach:
             pipe.model.reset_model()
-        model_output = pipe.tokenizer.decode(generated_content, skip_special_tokens=True)
-        return model_output, TTFT, JCT, TPOT, num_decode
+        # model_output = pipe.tokenizer.decode(generated_content, skip_special_tokens=True)
+        return "", TTFT, JCT, TPOT, num_decode, JCT_decode, TPOT_decode, memory_token_decode
 
     def generate_presentation(self):
         """
@@ -478,15 +546,15 @@ class EvalEngine:
         The results are saved in self.configs.result_path.
         """
 
-        self.dataset.calc_accuracy(self.configs.approach)
+        # self.dataset.calc_accuracy(self.configs.approach)
         self.dataset.save_dataset(self.configs.result_path)
 
-        accuracy_avg = np.mean(self.dataset.data[f"accuracy_{self.configs.approach}"])
+        # accuracy_avg = np.mean(self.dataset.data[f"accuracy_{self.configs.approach}"])
         TTFT_avg = np.mean(self.dataset.data[f"TTFT_{self.configs.approach}"])
         JCT_avg = np.mean(self.dataset.data[f"JCT_{self.configs.approach}"])
         TPOT_avg = np.mean(self.dataset.data[f"TPOT_{self.configs.approach}"])
         num_decode_avg = np.mean(self.dataset.data[f"num_decode_{self.configs.approach}"])
-        logger.info(f"Average accuracy of {self.configs.approach}: {accuracy_avg:.3f}")
+        # logger.info(f"Average accuracy of {self.configs.approach}: {accuracy_avg:.3f}")
         logger.info(f"Average TTFT of {self.configs.approach}: {TTFT_avg:.2f} s")
         logger.info(f"Average JCT of {self.configs.approach}: {JCT_avg:.2f} s")
         logger.info(f"Average TPOT of {self.configs.approach}: {TPOT_avg:.2f} s")

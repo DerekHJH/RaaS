@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import math
 
-import quest.utils
+import quest.quest_utils
 
 def assert_close(a, b):
     rtol, atol = {
@@ -69,7 +69,7 @@ def test_decode_attention_correctness(dtype_str, qo_len, kv_len):
     k_prefill = torch.randn(kv_len-1, num_heads, head_dim, dtype=dtype, device=device)
     v_prefill = torch.randn(kv_len-1, num_heads, head_dim, dtype=dtype, device=device)
 
-    testController = quest.utils.InferenceController(
+    testController = quest.quest_utils.InferenceController(
         num_layers,
         num_heads,
         head_dim,
@@ -84,7 +84,7 @@ def test_decode_attention_correctness(dtype_str, qo_len, kv_len):
     testController.prepare_metadata(kv_len-1)
     testController.begin_forward(kv_len-1)
     # Construct KV
-    quest.utils.append_kv(k_prefill, v_prefill, testController, 0)
+    quest.quest_utils.append_kv(k_prefill, v_prefill, testController, 0)
     testController.end_forward()
 
     k_decode = torch.randn(1, num_heads, head_dim, dtype=dtype, device=device)
@@ -92,10 +92,10 @@ def test_decode_attention_correctness(dtype_str, qo_len, kv_len):
     # Real decoding starts
     testController.prepare_metadata(1)
     testController.begin_forward(1)
-    quest.utils.append_kv(k_decode, v_decode, testController, 0)
+    quest.quest_utils.append_kv(k_decode, v_decode, testController, 0)
     # No CPU test cases
     assert testController.need_estimate() == False
-    o_device = quest.utils.decode_sparse_attn(
+    o_device = quest.quest_utils.decode_sparse_attn(
         q,
         testController,
         0,
